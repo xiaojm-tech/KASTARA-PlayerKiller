@@ -12,6 +12,16 @@ import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.inventory.CraftItemEvent;
 import org.bukkit.event.inventory.PrepareItemCraftEvent;
+import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.event.inventory.InventoryDragEvent;
+import org.bukkit.inventory.InventoryHolder;
+import org.bukkit.inventory.EquipmentSlot;
+import org.bukkit.enchantments.Enchantment;
+import org.bukkit.inventory.ItemFlag;
+import org.bukkit.entity.Item;
+import org.bukkit.Particle;
+import org.bukkit.Sound;
+import java.net.URL;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.inventory.*;
@@ -36,6 +46,8 @@ public final class KASTARAPlayerKiller extends JavaPlugin implements Listener {
     private Object lifeManager;
     private Method getLivesMethod;
     private BukkitTask pollTask;
+    private final Map<UUID, Integer> recipeMenus = new HashMap<>();
+    private static final String RECIPE_TITLE = "§8KASTARA • Recipes";
 
     @Override public void onEnable() {
         saveDefaultConfig();
@@ -48,6 +60,7 @@ public final class KASTARAPlayerKiller extends JavaPlugin implements Listener {
         loadData();
         registerRecipes();
         getServer().getPluginManager().registerEvents(this, this);
+        if (getCommand("recipe") != null) getCommand("recipe").setExecutor(this);
 
         Set<UUID> tracked = new HashSet<>(lifeSnapshot.keySet());
         tracked.addAll(stages.keySet());
@@ -175,6 +188,7 @@ public final class KASTARAPlayerKiller extends JavaPlugin implements Listener {
         mark(meta, "player_head");
         meta.setDisplayName(color("&fPlayer Head"));
         meta.setLore(lines("player-head-lore"));
+        applyTexture(meta, "textures.player-head");
         item.setItemMeta(meta);
         return item;
     }
@@ -189,6 +203,9 @@ public final class KASTARAPlayerKiller extends JavaPlugin implements Listener {
         mark(meta, "stage_" + stage);
         meta.setDisplayName(color(msg("stage-" + stage + "-name", defaultStageName(stage))));
         meta.setLore(lines("stage-" + stage + "-lore"));
+        meta.addEnchant(Enchantment.UNBREAKING, 1, true);
+        meta.addItemFlags(ItemFlag.HIDE_ENCHANTS);
+        applyTexture(meta, "textures.stage-" + stage);
         item.setItemMeta(meta);
         return item;
     }
@@ -212,21 +229,66 @@ public final class KASTARAPlayerKiller extends JavaPlugin implements Listener {
     }
 
     private void registerRecipes() {
-        addRecipe(1, new String[]{"DSD", "DHD", "DDD"});
-        addRecipe(2, new String[]{"DSD", "DHD", "DCD"});
-        addRecipe(3, new String[]{"DCD", "SHS", "DCD"});
+        addRecipe(1);
+        addRecipe(2);
+        addRecipe(3);
     }
 
-    private void addRecipe(int stage, String[] shape) {
+    private void addRecipe(int stage) {
+        String base = "recipes.stage-" + stage + ".";
+        List<String> rows = getConfig().getStringList(base + "shape");
+        if (rows.size() != 3) rows = switch (stage) {
+            case 1 -> List.of("DSD", "DHD", "DDD");
+            case 2 -> List.of("DSD", "DHD", "DCD");
+            default -> List.of("HNH", "SDC", "DDD");
+        };
         NamespacedKey key = new NamespacedKey(this, "stage_" + stage);
         ShapedRecipe recipe = new ShapedRecipe(key, makeStageItem(stage, null));
-        recipe.shape(shape);
-        recipe.setIngredient('D', Material.DIAMOND);
-        recipe.setIngredient('S', Material.DIAMOND_SWORD);
-        recipe.setIngredient('H', new RecipeChoice.MaterialChoice(Material.PLAYER_HEAD));
-        if (stage >= 2) recipe.setIngredient('C', Material.DIAMOND_CHESTPLATE);
+        recipe.shape(rows.get(0), rows.get(1), rows.get(2));
+        for (String symbol : List.of("D", "S", "C", "N", "H")) {
+            String materialName = getConfig().getString(base + "ingredients." + symbol);
+            if (materialName == null) materialName = switch (symbol) {
+                case "D" -> "DIAMOND";
+                case "S" -> "DIAMOND_SWORD";
+                case "C" -> "DIAMOND_CHESTPLATE";
+                case "N" -> "NETHERITE_INGOT";
+                default -> "PLAYER_HEAD";
+            };
+            if (rows.stream().noneMatch(row -> row.contains(symbol))) continue;
+            Material material = Material.matchMaterial(materialName);
+            if (material == null) {
+                getLogger().warning("Material recipe tidak valid: " + materialName + " (stage " + stage + ")");
+                continue;
+            }
+            if (symbol.equals("H")) recipe.setIngredient('H', new RecipeChoice.MaterialChoice(Material.PLAYER_HEAD));
+            else recipe.setIngredient(symbol.charAt(0), material);
+        }
         Bukkit.removeRecipe(key);
         Bukkit.addRecipe(recipe);
+    }
+
+    private void applyTexture(SkullMeta meta, String path) {
+        String raw = getConfig().getString(path, "");
+        if (raw == null || raw.isBlank()) return;
+        try {
+            String url = raw.trim();
+            if (url.startsWith("eyJ")) {
+                String decoded = new String(Base64.getDecoder().decode(url), java.nio.charset.StandardCharsets.UTF_8);
+                java.util.regex.Matcher matcher = java.util.regex.Pattern.compile("\\\"url\\\"\\s*:\\s*\\\"(https?://[^\\\"]+)").matcher(decoded);
+                if (matcher.find()) url = matcher.group(1);
+            }
+            if (!url.startsWith("https://textures.minecraft.net/texture/")) {
+                getLogger().warning("Texture " + path + " harus URL textures.minecraft.net atau Base64 texture valid.");
+                return;
+            }
+            org.bukkit.profile.PlayerProfile profile = Bukkit.createPlayerProfile(UUID.randomUUID());
+            org.bukkit.profile.PlayerTextures textures = profile.getTextures();
+            textures.setSkin(new URL(url));
+            profile.setTextures(textures);
+            meta.setPlayerProfile(profile);
+        } catch (Exception ex) {
+            getLogger().warning("Gagal memasang texture " + path + ": " + ex.getMessage());
+        }
     }
 
     @EventHandler public void onPrepareCraft(PrepareItemCraftEvent e) {
@@ -318,24 +380,18 @@ public final class KASTARAPlayerKiller extends JavaPlugin implements Listener {
         if ((stage == 1 && active != 0) || (stage == 2 && active != 1) || (stage == 3 && active != 2))
             return;
 
-        if (stage == 1) {
-            p.removePotionEffect(PotionEffectType.STRENGTH);
-            p.addPotionEffect(new PotionEffect(PotionEffectType.STRENGTH, Integer.MAX_VALUE, 0, false, false, true));
-        } else if (stage == 2) {
-            p.addPotionEffect(new PotionEffect(PotionEffectType.RESISTANCE, Integer.MAX_VALUE, 0, false, false, true));
-        } else {
-            p.removePotionEffect(PotionEffectType.STRENGTH);
-            p.removePotionEffect(PotionEffectType.RESISTANCE);
-            p.addPotionEffect(new PotionEffect(PotionEffectType.STRENGTH, Integer.MAX_VALUE, 1, false, false, true));
-            p.addPotionEffect(new PotionEffect(PotionEffectType.RESISTANCE, Integer.MAX_VALUE, 1, false, false, true));
-        }
+        applyStage(p, stage);
 
         stages.put(p.getUniqueId(), stage);
         lifeSnapshot.putIfAbsent(p.getUniqueId(), readLives(p.getUniqueId()));
+        playActivationEffects(p, stage, block.getLocation().add(0.5, 0.2, 0.5));
         block.setType(Material.AIR);
         getConfig().set("placed." + key, null);
         saveData();
         p.sendMessage(color(msg("activated-" + stage, "&aTahap " + stage + " berhasil diaktifkan!")));
+        if (stage == 3) p.sendTitle(color(getConfig().getString("final-title.title", "&cPlayer/Killer")),
+                color(getConfig().getString("final-title.subtitle", "&7are you a player or a killer??")),
+                10, 60, 20);
         p.sendActionBar(color(msg("activated-actionbar", "&bPlayer/Killer &f| &aEfek aktif")));
         sendGuide(p);
     }
@@ -350,16 +406,133 @@ public final class KASTARAPlayerKiller extends JavaPlugin implements Listener {
 
     private void applyStage(Player p, int stage) {
         if (stage <= 0) return;
-        p.removePotionEffect(PotionEffectType.STRENGTH);
-        p.removePotionEffect(PotionEffectType.RESISTANCE);
-        if (stage == 1 || stage == 2)
-            p.addPotionEffect(new PotionEffect(PotionEffectType.STRENGTH, Integer.MAX_VALUE, 0, false, false, true));
-        if (stage == 2)
-            p.addPotionEffect(new PotionEffect(PotionEffectType.RESISTANCE, Integer.MAX_VALUE, 0, false, false, true));
-        if (stage == 3) {
-            p.addPotionEffect(new PotionEffect(PotionEffectType.STRENGTH, Integer.MAX_VALUE, 1, false, false, true));
-            p.addPotionEffect(new PotionEffect(PotionEffectType.RESISTANCE, Integer.MAX_VALUE, 1, false, false, true));
+        int strength = stage == 3 ? 1 : 0;
+        int resistance = stage >= 2 ? (stage == 3 ? 1 : 0) : -1;
+        maintainEffect(p, PotionEffectType.STRENGTH, strength);
+        if (resistance >= 0) maintainEffect(p, PotionEffectType.RESISTANCE, resistance);
+    }
+
+    private void maintainEffect(Player p, PotionEffectType type, int amplifier) {
+        PotionEffect current = p.getPotionEffect(type);
+        // Potion vanilla yang levelnya lebih tinggi harus dibiarkan sampai durasinya habis.
+        if (current != null && current.getAmplifier() > amplifier) return;
+        int duration = Math.max(1, getConfig().getInt("effects.duration-ticks", Integer.MAX_VALUE));
+        int refreshAt = getConfig().getInt("effects.refresh-below-ticks", 80);
+        if (current == null || current.getAmplifier() < amplifier || current.getDuration() < refreshAt) {
+            p.addPotionEffect(new PotionEffect(type, duration, amplifier, false, false, true), true);
         }
+    }
+
+    private void playActivationEffects(Player p, int stage, Location at) {
+        ItemStack visual = makeStageItem(stage, null);
+        Item entity = at.getWorld().dropItem(at, visual);
+        entity.setVelocity(new org.bukkit.util.Vector(0, 0.65, 0));
+        entity.setPickupDelay(Integer.MAX_VALUE);
+        Bukkit.getScheduler().runTaskLater(this, entity::remove, 18L);
+        at.getWorld().spawnParticle(Particle.FIREWORK, at, 45, 0.45, 0.5, 0.45, 0.08);
+        at.getWorld().spawnParticle(Particle.END_ROD, at, 18, 0.35, 0.35, 0.35, 0.04);
+        try {
+            Sound sound = Sound.valueOf(getConfig().getString("effects.activation-sound",
+                    "ITEM_NETHERITE_UPGRADE_SMITHING_TEMPLATE_USE"));
+            p.playSound(at, sound, 1.0f, 1.0f);
+        } catch (IllegalArgumentException ex) {
+            p.playSound(at, Sound.UI_TOAST_CHALLENGE_COMPLETE, 1.0f, 1.0f);
+        }
+    }
+
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    public void preventHeadEquip(InventoryClickEvent e) {
+        if (!(e.getWhoClicked() instanceof Player)) return;
+        ItemStack cursor = e.getCursor();
+        ItemStack current = e.getCurrentItem();
+        boolean headCursor = itemId(cursor).equals("player_head");
+        boolean headCurrent = itemId(current).equals("player_head");
+        // Slot 5 adalah helmet pada player inventory; shift-click juga dicegah.
+        if ((e.getSlot() == 5 && headCursor) || (e.isShiftClick() && headCurrent)) {
+            e.setCancelled(true);
+            e.getWhoClicked().sendMessage(color(msg("head-equip-blocked", "&cPlayer Head tidak bisa dipakai sebagai helmet.")));
+        }
+    }
+
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    public void preventHeadDrag(InventoryDragEvent e) {
+        if (!itemId(e.getOldCursor()).equals("player_head")) return;
+        if (e.getRawSlots().contains(5)) {
+            e.setCancelled(true);
+            e.getWhoClicked().sendMessage(color(msg("head-equip-blocked", "&cPlayer Head tidak bisa dipakai sebagai helmet.")));
+        }
+    }
+
+    private void openRecipeMenu(Player p) {
+        RecipeHolder holder = new RecipeHolder(0);
+        Inventory inv = Bukkit.createInventory(holder, 27, RECIPE_TITLE);
+        holder.inventory = inv;
+        int[] slots = {11, 13, 15};
+        for (int stage = 1; stage <= 3; stage++) {
+            ItemStack icon = makeStageItem(stage, null);
+            inv.setItem(slots[stage - 1], icon);
+        }
+        p.openInventory(inv);
+    }
+
+    private void openRecipeDetail(Player p, int stage) {
+        RecipeHolder holder = new RecipeHolder(stage);
+        Inventory inv = Bukkit.createInventory(holder, 27, "§8Recipe • " + defaultStageName(stage));
+        holder.inventory = inv;
+        String base = "recipes.stage-" + stage + ".";
+        List<String> rows = getConfig().getStringList(base + "shape");
+        if (rows.size() != 3) rows = switch (stage) {
+            case 1 -> List.of("DSD", "DHD", "DDD");
+            case 2 -> List.of("DSD", "DHD", "DCD");
+            default -> List.of("HNH", "SDC", "DDD");
+        };
+        Map<Character, Material> mats = new HashMap<>();
+        for (char c : new char[]{'D','S','C','N','H'}) {
+            String fallback = switch (c) { case 'D' -> "DIAMOND"; case 'S' -> "DIAMOND_SWORD";
+                case 'C' -> "DIAMOND_CHESTPLATE"; case 'N' -> "NETHERITE_INGOT"; default -> "PLAYER_HEAD"; };
+            Material m = Material.matchMaterial(getConfig().getString(base + "ingredients." + c, fallback));
+            mats.put(c, m == null ? Material.BARRIER : m);
+        }
+        int[] slots = {10,11,12,13,14,15,16,19,20};
+        for (int r=0;r<3;r++) for (int c=0;c<3;c++) {
+            char symbol = rows.get(r).charAt(c);
+            if (symbol == ' ') continue;
+            ItemStack ingredient = new ItemStack(mats.getOrDefault(symbol, Material.BARRIER));
+            ItemMeta meta = ingredient.getItemMeta();
+            if (symbol == 'H') meta.setDisplayName(color("&fPlayer Head &7(custom item)"));
+            else meta.setDisplayName(color("&f" + mats.get(symbol).name()));
+            ingredient.setItemMeta(meta);
+            inv.setItem(slots[r*3+c], ingredient);
+        }
+        inv.setItem(22, named(Material.ARROW, "&eKembali"));
+        inv.setItem(26, named(Material.BARRIER, "&cTutup"));
+        p.openInventory(inv);
+    }
+
+    private ItemStack named(Material material, String name) {
+        ItemStack item = new ItemStack(material);
+        ItemMeta meta = item.getItemMeta(); meta.setDisplayName(color(name)); item.setItemMeta(meta);
+        return item;
+    }
+
+    @EventHandler
+    public void onRecipeMenuClick(InventoryClickEvent e) {
+        if (!(e.getWhoClicked() instanceof Player p) || !(e.getInventory().getHolder() instanceof RecipeHolder holder)) return;
+        e.setCancelled(true);
+        if (holder.stage == 0) {
+            int slot = e.getRawSlot();
+            if (slot == 11) openRecipeDetail(p, 1);
+            else if (slot == 13) openRecipeDetail(p, 2);
+            else if (slot == 15) openRecipeDetail(p, 3);
+        } else if (e.getRawSlot() == 22) openRecipeMenu(p);
+        else if (e.getRawSlot() == 26) p.closeInventory();
+    }
+
+    private static final class RecipeHolder implements InventoryHolder {
+        private final int stage;
+        private Inventory inventory;
+        RecipeHolder(int stage) { this.stage = stage; }
+        @Override public Inventory getInventory() { return inventory; }
     }
 
     private void sendGuide(Player p) {
@@ -443,6 +616,11 @@ public final class KASTARAPlayerKiller extends JavaPlugin implements Listener {
     }
 
     @Override public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
+        if (command.getName().equalsIgnoreCase("recipe")) {
+            if (sender instanceof Player p) openRecipeMenu(p);
+            else sender.sendMessage("Command ini hanya bisa digunakan oleh player.");
+            return true;
+        }
         if (!sender.hasPermission("kastaraplayerkiller.admin")) {
             sender.sendMessage(color("&cTidak punya izin."));
             return true;

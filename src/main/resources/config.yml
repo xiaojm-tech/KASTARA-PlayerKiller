@@ -1,28 +1,57 @@
-# Lore item Player Head
+# KASTARA-PlayerKiller v1.1.0
+# Texture dapat diisi URL textures.minecraft.net/texture/<hash> atau Base64 property textures.
+textures:
+  player-head: ""
+  stage-1: "" # Bloody Diamond
+  stage-2: "" # Diamond Sprinkle
+  stage-3: "" # Very Bloody
+
+recipes:
+  stage-1:
+    shape: ["DSD", "DHD", "DDD"]
+    ingredients: {D: DIAMOND, S: DIAMOND_SWORD, H: PLAYER_HEAD}
+  stage-2:
+    shape: ["DSD", "DHD", "DCD"]
+    ingredients: {D: DIAMOND, S: DIAMOND_SWORD, C: DIAMOND_CHESTPLATE, H: PLAYER_HEAD}
+  stage-3:
+    # H=Player Head, N=Netherite Ingot, S=Diamond Sword,
+    # C=Diamond Chestplate, D=Diamond
+    shape: ["HNH", "SDC", "DDD"]
+    ingredients: {H: PLAYER_HEAD, N: NETHERITE_INGOT, S: DIAMOND_SWORD, C: DIAMOND_CHESTPLATE, D: DIAMOND}
+
+effects:
+  duration-ticks: 2147483647
+  refresh-below-ticks: 80
+  activation-sound: ITEM_NETHERITE_UPGRADE_SMITHING_TEMPLATE_USE
+
+final-title:
+  title: "&c&lPLAYER/KILLER"
+  subtitle: "&7are you a player or a killer??"
+
 player-head-lore:
   - "&7Drop dari membunuh player lain."
   - "&7Gunakan sebagai bahan crafting tahap Player/Killer."
+  - "&7Tidak dapat dipakai sebagai helmet."
   - "&7Letakkan hasil craft di tanah dengan klik kanan."
   - "&7Lihat kepala tersebut lalu tekan &fShift + Klik Kanan&7."
   - "&cEfek dan progres hilang jika kamu mati / kehilangan life."
-
 stage-1-name: "&bSharp as a Diamond"
 stage-1-lore:
+  - "&7Bloody Diamond • Enchanted"
   - "&7Membuka efek permanen Strength I."
-  - "&7Letakkan kepala di tanah dengan klik kanan."
-  - "&7Lihat kepala lalu tekan &fShift + Klik Kanan&7."
+  - "&7Letakkan kepala di tanah, lihat, lalu &fShift + Klik Kanan&7."
   - "&cEfek dan progres hilang jika mati / kehilangan life."
 stage-2-name: "&bHard as a Diamond"
 stage-2-lore:
-  - "&7Mengaktifkan Strength I + Resistance I permanen."
+  - "&7Diamond Sprinkle • Enchanted"
+  - "&7Mengaktifkan Strength I + Resistance I."
   - "&7Wajib aktifkan Sharp as a Diamond terlebih dahulu."
-  - "&7Letakkan kepala, lihat, lalu &fShift + Klik Kanan&7."
   - "&cEfek dan progres hilang jika mati / kehilangan life."
-stage-3-name: "&cPlayer/Killer"
+stage-3-name: "&cPlayer/Killer?"
 stage-3-lore:
-  - "&7Efek final: Strength II + Resistance II permanen."
+  - "&4VERY BLOODY • ENCHANTED"
+  - "&7Efek final: Strength II + Resistance II."
   - "&7Wajib aktifkan dua tahap sebelumnya."
-  - "&7Letakkan kepala, lihat, lalu &fShift + Klik Kanan&7."
   - "&cEfek dan progres hilang jika mati / kehilangan life."
 
 messages:
@@ -37,6 +66,7 @@ messages:
   activated-2: "&aHard as a Diamond aktif! Strength I + Resistance I aktif."
   activated-3: "&cPlayer/Killer aktif! Strength II + Resistance II aktif."
   activated-actionbar: "&bPlayer/Killer &f| &aEfek berhasil diaktifkan"
+  head-equip-blocked: "&cPlayer Head tidak bisa dipakai sebagai helmet."
   guide-header: "&6&lPLAYER/KILLER"
   guide-next: "&eTahap berikutnya: &f{stage}"
   guide-use: "&7Craft item, letakkan kepala di tanah dengan klik kanan, lalu lihat kepala dan tekan &fShift + Klik Kanan&7."
