@@ -1,4 +1,4 @@
-# KASTARA-PlayerKiller 1.1.0
+# KASTARA-PlayerKiller 1.2.0
 
 Paper plugin for KASTARA. Requires KASTARALives.
 
