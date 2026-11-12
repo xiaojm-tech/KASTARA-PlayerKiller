@@ -381,9 +381,7 @@ public final class KASTARAPlayerKiller extends JavaPlugin implements Listener {
         if ((stage == 1 && active != 0) || (stage == 2 && active != 1) || (stage == 3 && active != 2))
             return;
 
-        applyStage(p, stage);
-
-        stages.put(p.getUniqueId(), stage);
+        // Progress dan potion baru diberikan setelah animasi kepala selesai.
         lifeSnapshot.putIfAbsent(p.getUniqueId(), readLives(p.getUniqueId()));
         playActivationEffects(p, stage, block.getLocation().add(0.5, 0.2, 0.5));
         block.setType(Material.AIR);
@@ -395,7 +393,6 @@ public final class KASTARAPlayerKiller extends JavaPlugin implements Listener {
                 color(getConfig().getString("final-title.subtitle", "&7")),
                 10, 60, 20);
         p.sendActionBar(color(msg("activated-actionbar", "&bPlayer/Killer &f| &aEfek aktif")));
-        sendGuide(p);
     }
 
     @EventHandler public void onBreak(BlockBreakEvent e) {
@@ -426,38 +423,56 @@ public final class KASTARAPlayerKiller extends JavaPlugin implements Listener {
     }
 
     private void playActivationEffects(Player p, int stage, Location at) {
-        // Item head melayang perlahan hingga sekitar 2 blok, lalu pecah dengan burst ungu.
-        Item entity = at.getWorld().dropItem(at, makeStageItem(stage, null));
+        World world = at.getWorld();
+
+        // Suara pengisian respawn anchor saat kepala mulai terangkat.
+        world.playSound(at, Sound.BLOCK_RESPAWN_ANCHOR_CHARGE, 1.0f, 1.0f);
+
+        Item entity = world.dropItem(at, makeStageItem(stage, null));
         entity.setPickupDelay(Integer.MAX_VALUE);
         entity.setGravity(false);
         entity.setVelocity(new org.bukkit.util.Vector(0, 0, 0));
+
         final BukkitTask[] animation = new BukkitTask[1];
         animation[0] = Bukkit.getScheduler().runTaskTimer(this, new Runnable() {
             private int ticks = 0;
+
             @Override public void run() {
                 if (!entity.isValid() || ticks >= 30) {
                     if (entity.isValid()) {
                         Location burst = entity.getLocation();
-                        burst.getWorld().spawnParticle(Particle.FIREWORK, burst, 55, 0.45, 0.5, 0.45, 0.08);
-                        burst.getWorld().spawnParticle(Particle.DUST, burst, 45, 0.5, 0.5, 0.5, 0.02,
+
+                        // Ledakan: respawn anchor + achievement toast + partikel ungu.
+                        world.playSound(burst, Sound.BLOCK_RESPAWN_ANCHOR_DEPLETE, 1.4f, 0.9f);
+                        world.playSound(burst, Sound.UI_TOAST_CHALLENGE_COMPLETE, 1.0f, 1.0f);
+                        world.spawnParticle(Particle.FIREWORK, burst, 55, 0.45, 0.5, 0.45, 0.08);
+                        world.spawnParticle(Particle.DUST, burst, 45, 0.5, 0.5, 0.5, 0.02,
                                 new Particle.DustOptions(Color.PURPLE, 1.7f));
-                        burst.getWorld().spawnParticle(Particle.PORTAL, burst, 35, 0.4, 0.5, 0.4, 0.25);
+                        world.spawnParticle(Particle.PORTAL, burst, 35, 0.4, 0.5, 0.4, 0.25);
                         entity.remove();
                     }
+
                     animation[0].cancel();
+
+                    // Potion dan progres aktif setelah animasi/ledakan selesai.
+                    if (p.isOnline()) {
+                        stages.put(p.getUniqueId(), stage);
+                        applyStage(p, stage);
+                        saveData();
+                        p.sendActionBar(color(msg("activated-actionbar", "&bPlayer/Killer &f| &aEfek aktif")));
+                        sendGuide(p);
+                    }
                     return;
                 }
-                entity.teleport(entity.getLocation().add(0, 0.065, 0));
+
+                Location rising = entity.getLocation().add(0, 0.065, 0);
+                entity.teleport(rising);
+                // Kilau glowstone-like sepanjang kepala melayang.
+                world.spawnParticle(Particle.GLOW, rising, 8, 0.22, 0.18, 0.22, 0.01);
+                world.spawnParticle(Particle.END_ROD, rising, 3, 0.16, 0.16, 0.16, 0.005);
                 ticks++;
             }
         }, 0L, 1L);
-        try {
-            Sound sound = Sound.valueOf(getConfig().getString("effects.activation-sound",
-                    "ITEM_NETHERITE_UPGRADE_SMITHING_TEMPLATE_USE"));
-            p.playSound(at, sound, 1.0f, 1.0f);
-        } catch (IllegalArgumentException ex) {
-            p.playSound(at, Sound.UI_TOAST_CHALLENGE_COMPLETE, 1.0f, 1.0f);
-        }
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
