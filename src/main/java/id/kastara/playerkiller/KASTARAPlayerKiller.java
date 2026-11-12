@@ -494,15 +494,19 @@ public final class KASTARAPlayerKiller extends JavaPlugin implements Listener {
     // Semua visual adalah entity/particle dekoratif; tidak mengubah block dunia.
     private String stageVisualTag(Location location) {
         String identity = locKey(location.getBlock().getLocation());
-        return "kpk_stagefx_" + UUID.nameUUIDFromBytes(identity.getBytes(java.nio.charset.StandardCharsets.UTF_8))
+        return "kpk_stagefx_v2_" + UUID.nameUUIDFromBytes(identity.getBytes(java.nio.charset.StandardCharsets.UTF_8))
                 .toString().replace("-", "");
     }
 
     private void removeStageVisuals(Location location) {
         if (location.getWorld() == null) return;
         String tag = stageVisualTag(location);
+        String legacyTag = "kpk_stagefx_" + UUID.nameUUIDFromBytes(
+                locKey(location.getBlock().getLocation()).getBytes(java.nio.charset.StandardCharsets.UTF_8))
+                .toString().replace("-", "");
         for (ItemDisplay display : location.getWorld().getEntitiesByClass(ItemDisplay.class)) {
-            if (display.getScoreboardTags().contains(tag)) display.remove();
+            if (display.getScoreboardTags().contains(tag) || display.getScoreboardTags().contains(legacyTag))
+                display.remove();
         }
     }
 
@@ -531,10 +535,11 @@ public final class KASTARAPlayerKiller extends JavaPlugin implements Listener {
                 Location center = blockLoc.clone().add(0.5, 0.52, 0.5);
 
                 if (stage == 2) {
-                    // Ledakan TNT mungil berulang selama Hard as a Diamond dipajang.
-                    world.spawnParticle(Particle.SMOKE, center, 3, 0.16, 0.13, 0.16, 0.005);
-                    world.spawnParticle(Particle.FLAME, center, 2, 0.14, 0.12, 0.14, 0.002);
-                    world.spawnParticle(Particle.EXPLOSION, center, 1, 0.10, 0.08, 0.10, 0);
+                    // Aura sculk/Warden kecil dan halus, tanpa ledakan besar.
+                    Location aura = center.clone().add(0, -0.10, 0);
+                    world.spawnParticle(Particle.SCULK_SOUL, aura, 2, 0.12, 0.10, 0.12, 0.005);
+                    world.spawnParticle(Particle.DUST, aura, 3, 0.15, 0.12, 0.15, 0,
+                            new Particle.DustOptions(Color.fromRGB(35, 105, 125), 0.8f));
                 }
 
                 if (exists || stage == 2) continue;
@@ -551,20 +556,27 @@ public final class KASTARAPlayerKiller extends JavaPlugin implements Listener {
                         // Pedang menancap diagonal 45 derajat ke bagian atas kepala.
                         rotation.rotateZ((float) Math.toRadians(-45));
                     } else {
-                        // Pedang horizontal di sisi depan, tampak seperti digigit.
-                        rotation.rotateZ((float) Math.toRadians(90));
+                        // Pedang dibuat sedikit menyilang seperti sedang digigit.
+                        rotation.rotateZ((float) Math.toRadians(78));
                     }
                     entity.setTransformation(new Transformation(
                             new Vector3f(0f, 0f, 0f), rotation,
-                            new Vector3f(0.72f, 0.72f, 0.72f), new Quaternionf()));
+                            new Vector3f(stage == 3 ? 0.58f : 0.72f,
+                                    stage == 3 ? 0.58f : 0.72f,
+                                    stage == 3 ? 0.58f : 0.72f), new Quaternionf()));
                 });
                 if (stage == 3) {
-                    // Dorong visual ke sisi depan kepala agar bilah tampak berada di mulut.
+                    // Tempatkan Netherite Sword tepat di muka/mulut sesuai arah hadap skull.
                     org.bukkit.block.BlockState state = blockLoc.getBlock().getState();
-                    if (state instanceof org.bukkit.block.Skull skull && skull.getBlockData() instanceof org.bukkit.block.data.Rotatable rotatable) {
-                        org.bukkit.util.Vector facing = rotatable.getRotation().getDirection();
-                        display.teleport(center.clone().add(facing.multiply(0.28)));
-                        display.setRotation(display.getLocation().getYaw(), 0f);
+                    if (state instanceof org.bukkit.block.Skull skull
+                            && skull.getBlockData() instanceof org.bukkit.block.data.Rotatable rotatable) {
+                        org.bukkit.util.Vector facing = rotatable.getRotation().getDirection().normalize();
+                        Location mouth = center.clone().add(facing.multiply(0.42)).add(0, -0.18, 0);
+                        display.teleport(mouth);
+                        float yaw = (float) Math.toDegrees(Math.atan2(-facing.getX(), facing.getZ()));
+                        display.setRotation(yaw, 0f);
+                    } else {
+                        display.teleport(center.clone().add(0, -0.18, 0.42));
                     }
                 }
             } catch (NumberFormatException ignored) {
