@@ -134,18 +134,12 @@ public final class KASTARAPlayerKiller extends JavaPlugin implements Listener {
     }
 
     private void clearEffects(Player p, boolean notify) {
-        removeManagedEffect(p, PotionEffectType.STRENGTH);
-        removeManagedEffect(p, PotionEffectType.RESISTANCE);
+        p.removePotionEffect(PotionEffectType.STRENGTH);
+        p.removePotionEffect(PotionEffectType.RESISTANCE);
         if (notify) {
             p.sendMessage(color(msg("reset-message", "&cNyawa berkurang! Semua efek dan progres Player/Killer telah di-reset.")));
             p.sendActionBar(color(msg("reset-actionbar", "&cProgres Player/Killer di-reset")));
         }
-    }
-
-    private void removeManagedEffect(Player p, PotionEffectType type) {
-        PotionEffect current = p.getPotionEffect(type);
-        int managedAmplifier = stages.getOrDefault(p.getUniqueId(), 0) == 3 ? 1 : 0;
-        if (current != null && current.getAmplifier() <= managedAmplifier) p.removePotionEffect(type);
     }
 
     private void resetProgress(Player p) {
