@@ -390,8 +390,9 @@ public final class KASTARAPlayerKiller extends JavaPlugin implements Listener {
         getConfig().set("placed." + key, null);
         saveData();
         p.sendMessage(color(msg("activated-" + stage, "&aTahap " + stage + " berhasil diaktifkan!")));
-        if (stage == 3) p.sendTitle(color(getConfig().getString("final-title.title", "&cPlayer/Killer")),
-                color(getConfig().getString("final-title.subtitle", "&7are you a player or a killer??")),
+        if (stage == 3) p.sendTitle(
+                color(getConfig().getString("final-title.title", "&d&lare you a player or a killer??")),
+                color(getConfig().getString("final-title.subtitle", "&7")),
                 10, 60, 20);
         p.sendActionBar(color(msg("activated-actionbar", "&bPlayer/Killer &f| &aEfek aktif")));
         sendGuide(p);
@@ -425,19 +426,37 @@ public final class KASTARAPlayerKiller extends JavaPlugin implements Listener {
     }
 
     private void playActivationEffects(Player p, int stage, Location at) {
-        ItemStack visual = makeStageItem(stage, null);
-        Item entity = at.getWorld().dropItem(at, visual);
-        entity.setVelocity(new org.bukkit.util.Vector(0, 0.65, 0));
+        // Item head melayang perlahan hingga sekitar 2 blok, lalu pecah dengan burst ungu.
+        Item entity = at.getWorld().dropItem(at, makeStageItem(stage, null));
         entity.setPickupDelay(Integer.MAX_VALUE);
-        Bukkit.getScheduler().runTaskLater(this, entity::remove, 18L);
-        at.getWorld().spawnParticle(Particle.FIREWORK, at, 45, 0.45, 0.5, 0.45, 0.08);
-        at.getWorld().spawnParticle(Particle.END_ROD, at, 18, 0.35, 0.35, 0.35, 0.04);
+        entity.setGravity(false);
+        entity.setVelocity(new org.bukkit.util.Vector(0, 0, 0));
+        final BukkitTask[] animation = new BukkitTask[1];
+        animation[0] = Bukkit.getScheduler().runTaskTimer(this, new Runnable() {
+            private int ticks = 0;
+            @Override public void run() {
+                if (!entity.isValid() || ticks >= 30) {
+                    if (entity.isValid()) {
+                        Location burst = entity.getLocation();
+                        burst.getWorld().spawnParticle(Particle.FIREWORK, burst, 55, 0.45, 0.5, 0.45, 0.08);
+                        burst.getWorld().spawnParticle(Particle.DUST, burst, 45, 0.5, 0.5, 0.5, 0.02,
+                                new Particle.DustOptions(Color.PURPLE, 1.7f));
+                        burst.getWorld().spawnParticle(Particle.PORTAL, burst, 35, 0.4, 0.5, 0.4, 0.25);
+                        entity.remove();
+                    }
+                    animation[0].cancel();
+                    return;
+                }
+                entity.teleport(entity.getLocation().add(0, 0.065, 0));
+                ticks++;
+            }
+        }, 0L, 1L);
         try {
             Sound sound = Sound.valueOf(getConfig().getString("effects.activation-sound",
                     "ITEM_NETHERITE_UPGRADE_SMITHING_TEMPLATE_USE"));
             p.playSound(at, sound, 1.0f, 1.0f);
         } catch (IllegalArgumentException ex) {
-            p.playSound(at, Sound.UI_TOAST_CHALLENGE_COMPLETE, 1.0f, 1.0f);
+            p.playSound(at, Sound.ITEM_NETHERITE_UPGRADE_SMITHING_TEMPLATE_USE, 1.0f, 1.0f);
         }
     }
 
@@ -558,8 +577,9 @@ public final class KASTARAPlayerKiller extends JavaPlugin implements Listener {
     private List<String> lines(String path) {
         List<String> list = getConfig().getStringList(path);
         if (list.isEmpty()) list = List.of(
-                "&7Gunakan sebagai bahan crafting tahap Player/Killer.",
-                "&e/recipe untuk upgrade");
+                "&7Drop dari membunuh player lain.",
+                "&e/recipe untuk upgrade",
+                "&fShift + Klik Kanan untuk menggunakan.");
         List<String> out = new ArrayList<>();
         for (String line : list) out.add(color(line));
         return out;
