@@ -20,17 +20,20 @@ recipes:
     ingredients: {H: PLAYER_HEAD, N: NETHERITE_INGOT, S: DIAMOND_SWORD, C: DIAMOND_CHESTPLATE, D: DIAMOND}
 
 effects:
+  # Integer maksimum = durasi sangat panjang; plugin akan refresh sebelum habis.
   duration-ticks: 2147483647
   refresh-below-ticks: 80
   activation-sound: ITEM_NETHERITE_UPGRADE_SMITHING_TEMPLATE_USE
+  # Animasi kepala naik sekitar 2 blok, diakhiri ledakan partikel ungu (diatur di kode).
 
 final-title:
-  title: "&c&lPLAYER/KILLER"
-  subtitle: "&7are you a player or a killer??"
+  title: "&d&lare you a player or a killer??"
+  subtitle: "&7"
 
 player-head-lore:
-  - "&7Gunakan sebagai bahan crafting tahap Player/Killer."
+  - "&7Drop dari membunuh player lain."
   - "&e/recipe untuk upgrade"
+  - "&fShift + Klik Kanan untuk menggunakan."
 stage-1-name: "&bSharp as a Diamond"
 stage-1-lore:
   - "&7Bloody Diamond • Enchanted"
