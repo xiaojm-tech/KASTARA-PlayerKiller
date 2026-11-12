@@ -86,6 +86,9 @@ public final class KASTARAPlayerKiller extends JavaPlugin implements Listener {
                 if (stage > 0) applyStage(p, stage);
             }
         }, 20L, 20L);
+
+        // Efek redstone dust dekoratif di lantai sekitar kepala yang sedang dipajang.
+        Bukkit.getScheduler().runTaskTimer(this, this::spawnPlacedHeadRedstone, 10L, 10L);
         getLogger().info("KASTARA-PlayerKiller enabled; hooked into KASTARALives.");
     }
 
@@ -400,6 +403,41 @@ public final class KASTARAPlayerKiller extends JavaPlugin implements Listener {
         if (getConfig().contains("placed." + key)) {
             getConfig().set("placed." + key, null);
             saveData();
+        }
+    }
+
+    private void spawnPlacedHeadRedstone() {
+        if (!getConfig().isConfigurationSection("placed")) return;
+
+        // Partikel DUST merah murni visual: tidak membuat/mengubah blok redstone.
+        Particle.DustOptions bloodDust = new Particle.DustOptions(Color.fromRGB(190, 15, 25), 1.25f);
+        for (String key : getConfig().getConfigurationSection("placed").getKeys(false)) {
+            String[] parts = key.split(",");
+            if (parts.length != 4) continue;
+            World world = Bukkit.getWorld(parts[0]);
+            if (world == null) continue;
+
+            try {
+                int x = Integer.parseInt(parts[1]);
+                int y = Integer.parseInt(parts[2]);
+                int z = Integer.parseInt(parts[3]);
+                // Kepala berada di (x,y,z); partikel menempel di permukaan lantai y-1,
+                // membentuk bercak kecil di sekeliling pangkal kepala.
+                double[][] drops = {
+                        {0.18, 0.02, 0.18}, {0.36, 0.02, 0.12},
+                        {0.70, 0.02, 0.20}, {0.82, 0.02, 0.42},
+                        {0.76, 0.02, 0.72}, {0.55, 0.02, 0.82},
+                        {0.25, 0.02, 0.76}, {0.12, 0.02, 0.52},
+                        {0.48, 0.02, 0.48}
+                };
+                for (double[] drop : drops) {
+                    world.spawnParticle(Particle.DUST,
+                            new Location(world, x + drop[0], y + drop[1], z + drop[2]),
+                            1, 0, 0, 0, 0, bloodDust);
+                }
+            } catch (NumberFormatException ignored) {
+                getLogger().warning("Lokasi kepala tersimpan tidak valid: " + key);
+            }
         }
     }
 
