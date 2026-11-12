@@ -185,12 +185,13 @@ public final class KASTARAPlayerKiller extends JavaPlugin implements Listener {
         }, 2L);
     }
 
-    private ItemStack makePlayerHead(Player owner) {
+    private ItemStack makePlayerHead(org.bukkit.OfflinePlayer owner) {
         ItemStack item = new ItemStack(Material.PLAYER_HEAD);
         SkullMeta meta = (SkullMeta) item.getItemMeta();
-        meta.setOwningPlayer(owner);
+        if (owner != null) meta.setOwningPlayer(owner);
         mark(meta, "player_head");
-        meta.setDisplayName(color("&fPlayer Head"));
+        String nickname = owner == null || owner.getName() == null ? "Player" : owner.getName();
+        meta.setDisplayName(color("&f" + nickname + " Head"));
         meta.setLore(lines("player-head-lore"));
         applyTexture(meta, "textures.player-head");
         item.setItemMeta(meta);
@@ -413,16 +414,35 @@ public final class KASTARAPlayerKiller extends JavaPlugin implements Listener {
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onBreak(BlockBreakEvent e) {
         String key = locKey(e.getBlock().getLocation());
-        if (!getConfig().contains("placed." + key)) return;
+        String dataPath = "placed." + key;
+        if (!getConfig().contains(dataPath)) return;
 
+        int stage = getConfig().getInt(dataPath, 0);
         ItemStack preserved = getConfig().getItemStack("placed-items." + key);
-        // Matikan drop vanilla yang kehilangan PersistentDataContainer custom.
-        e.setDropItems(false);
-        if (preserved != null && !preserved.getType().isAir()) {
-            e.getBlock().getWorld().dropItemNaturally(e.getBlock().getLocation().add(0.5, 0.2, 0.5), preserved.clone());
+
+        // Jika serialisasi item gagal / PDC hilang, bangun ulang item custom dari
+        // data stage dan pemilik skin pada block state agar tidak jatuh sebagai head vanilla.
+        if (preserved == null || preserved.getType() != Material.PLAYER_HEAD
+                || itemId(preserved).isEmpty()) {
+            org.bukkit.OfflinePlayer owner = null;
+            if (e.getBlock().getState() instanceof org.bukkit.block.Skull skullState) {
+                owner = skullState.getOwningPlayer();
+            }
+            ItemStack source = new ItemStack(Material.PLAYER_HEAD);
+            if (owner != null) {
+                SkullMeta sourceMeta = (SkullMeta) source.getItemMeta();
+                sourceMeta.setOwningPlayer(owner);
+                source.setItemMeta(sourceMeta);
+            }
+            preserved = stage > 0 ? makeStageItem(stage, source) : makePlayerHead(owner);
         }
 
-        getConfig().set("placed." + key, null);
+        // Matikan drop vanilla, lalu jatuhkan item custom lengkap dengan PDC/nama/lore/skin.
+        e.setDropItems(false);
+        e.getBlock().getWorld().dropItemNaturally(
+                e.getBlock().getLocation().add(0.5, 0.2, 0.5), preserved.clone());
+
+        getConfig().set(dataPath, null);
         getConfig().set("placed-items." + key, null);
         saveData();
     }
