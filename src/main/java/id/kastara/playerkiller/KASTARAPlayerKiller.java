@@ -351,11 +351,22 @@ public final class KASTARAPlayerKiller extends JavaPlugin implements Listener {
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onPlace(BlockPlaceEvent e) {
         String id = itemId(e.getItemInHand());
-        if (!id.startsWith("stage_")) return;
-        int stage;
-        try { stage = Integer.parseInt(id.substring(6)); }
-        catch (NumberFormatException ex) { return; }
-        getConfig().set("placed." + locKey(e.getBlockPlaced().getLocation()), stage);
+        if (!id.equals("player_head") && !id.startsWith("stage_")) return;
+
+        int stage = 0;
+        if (id.startsWith("stage_")) {
+            try { stage = Integer.parseInt(id.substring(6)); }
+            catch (NumberFormatException ex) { return; }
+        }
+
+        String key = locKey(e.getBlockPlaced().getLocation());
+        getConfig().set("placed." + key, stage);
+
+        // Simpan salinan item custom lengkap (PDC, nama, lore, tekstur, glint)
+        // agar saat blok dihancurkan item yang jatuh bukan Player Head vanilla.
+        ItemStack preserved = e.getItemInHand().clone();
+        preserved.setAmount(1);
+        getConfig().set("placed-items." + key, preserved);
         saveData();
     }
 
@@ -389,6 +400,7 @@ public final class KASTARAPlayerKiller extends JavaPlugin implements Listener {
         playActivationEffects(p, stage, block.getLocation().add(0.5, 0.2, 0.5));
         block.setType(Material.AIR);
         getConfig().set("placed." + key, null);
+        getConfig().set("placed-items." + key, null);
         saveData();
         p.sendMessage(color(msg("activated-" + stage, "&aTahap " + stage + " berhasil diaktifkan!")));
         if (stage == 3) p.sendTitle(
@@ -398,12 +410,21 @@ public final class KASTARAPlayerKiller extends JavaPlugin implements Listener {
         p.sendActionBar(color(msg("activated-actionbar", "&bPlayer/Killer &f| &aEfek aktif")));
     }
 
-    @EventHandler public void onBreak(BlockBreakEvent e) {
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    public void onBreak(BlockBreakEvent e) {
         String key = locKey(e.getBlock().getLocation());
-        if (getConfig().contains("placed." + key)) {
-            getConfig().set("placed." + key, null);
-            saveData();
+        if (!getConfig().contains("placed." + key)) return;
+
+        ItemStack preserved = getConfig().getItemStack("placed-items." + key);
+        // Matikan drop vanilla yang kehilangan PersistentDataContainer custom.
+        e.setDropItems(false);
+        if (preserved != null && !preserved.getType().isAir()) {
+            e.getBlock().getWorld().dropItemNaturally(e.getBlock().getLocation().add(0.5, 0.2, 0.5), preserved.clone());
         }
+
+        getConfig().set("placed." + key, null);
+        getConfig().set("placed-items." + key, null);
+        saveData();
     }
 
     private void spawnPlacedHeadRedstone() {
@@ -680,6 +701,12 @@ public final class KASTARAPlayerKiller extends JavaPlugin implements Listener {
             for (String key : data.getConfigurationSection("placed").getKeys(false))
                 getConfig().set("placed." + key, data.getInt("placed." + key));
         }
+        if (data.getConfigurationSection("placed-items") != null) {
+            for (String key : data.getConfigurationSection("placed-items").getKeys(false)) {
+                ItemStack saved = data.getItemStack("placed-items." + key);
+                if (saved != null) getConfig().set("placed-items." + key, saved);
+            }
+        }
         saveConfig();
     }
 
@@ -691,6 +718,8 @@ public final class KASTARAPlayerKiller extends JavaPlugin implements Listener {
             data.set("life-snapshot." + entry.getKey(), entry.getValue());
         if (getConfig().isConfigurationSection("placed"))
             data.set("placed", getConfig().getConfigurationSection("placed").getValues(false));
+        if (getConfig().isConfigurationSection("placed-items"))
+            data.set("placed-items", getConfig().getConfigurationSection("placed-items").getValues(false));
         try { data.save(new java.io.File(getDataFolder(), "data.yml")); }
         catch (Exception ex) { getLogger().warning("Gagal menyimpan data: " + ex.getMessage()); }
     }
