@@ -20,6 +20,10 @@ import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.inventory.ItemFlag;
 import org.bukkit.entity.Item;
+import org.bukkit.entity.ItemDisplay;
+import org.bukkit.util.Transformation;
+import org.joml.Vector3f;
+import org.joml.Quaternionf;
 import org.bukkit.Particle;
 import org.bukkit.Sound;
 import java.net.URL;
@@ -89,6 +93,7 @@ public final class KASTARAPlayerKiller extends JavaPlugin implements Listener {
 
         // Efek redstone dust dekoratif di lantai sekitar kepala yang sedang dipajang.
         Bukkit.getScheduler().runTaskTimer(this, this::spawnPlacedHeadRedstone, 10L, 10L);
+        Bukkit.getScheduler().runTaskTimer(this, this::updateStageFloorVisuals, 5L, 10L);
         getLogger().info("KASTARA-PlayerKiller enabled; hooked into KASTARALives.");
     }
 
@@ -402,6 +407,7 @@ public final class KASTARAPlayerKiller extends JavaPlugin implements Listener {
         block.setType(Material.AIR);
         getConfig().set("placed." + key, null);
         getConfig().set("placed-items." + key, null);
+        removeStageVisuals(block.getLocation());
         saveData();
         p.sendMessage(color(msg("activated-" + stage, "&aTahap " + stage + " berhasil diaktifkan!")));
         if (stage == 3) p.sendTitle(
@@ -444,6 +450,7 @@ public final class KASTARAPlayerKiller extends JavaPlugin implements Listener {
 
         getConfig().set(dataPath, null);
         getConfig().set("placed-items." + key, null);
+        removeStageVisuals(e.getBlock().getLocation());
         saveData();
     }
 
@@ -480,6 +487,95 @@ public final class KASTARAPlayerKiller extends JavaPlugin implements Listener {
                 getLogger().warning("Lokasi kepala tersimpan tidak valid: " + key);
             }
         }
+    }
+
+
+    // Visual panggung khusus untuk item Stage 1-3 yang dipasang di lantai.
+    // Semua visual adalah entity/particle dekoratif; tidak mengubah block dunia.
+    private String stageVisualTag(Location location) {
+        String identity = locKey(location.getBlock().getLocation());
+        return "kpk_stagefx_" + UUID.nameUUIDFromBytes(identity.getBytes(java.nio.charset.StandardCharsets.UTF_8))
+                .toString().replace("-", "");
+    }
+
+    private void removeStageVisuals(Location location) {
+        if (location.getWorld() == null) return;
+        String tag = stageVisualTag(location);
+        for (ItemDisplay display : location.getWorld().getEntitiesByClass(ItemDisplay.class)) {
+            if (display.getScoreboardTags().contains(tag)) display.remove();
+        }
+    }
+
+    private void updateStageFloorVisuals() {
+        if (!getConfig().isConfigurationSection("placed")) return;
+        for (String key : getConfig().getConfigurationSection("placed").getKeys(false)) {
+            int stage = getConfig().getInt("placed." + key, 0);
+            if (stage < 1 || stage > 3) continue;
+            String[] parts = key.split(",");
+            if (parts.length != 4) continue;
+            World world = Bukkit.getWorld(parts[0]);
+            if (world == null) continue;
+            try {
+                int x = Integer.parseInt(parts[1]);
+                int y = Integer.parseInt(parts[2]);
+                int z = Integer.parseInt(parts[3]);
+                Location blockLoc = new Location(world, x, y, z);
+                if (blockLoc.getBlock().getType() != Material.PLAYER_HEAD
+                        && blockLoc.getBlock().getType() != Material.PLAYER_WALL_HEAD) {
+                    removeStageVisuals(blockLoc);
+                    continue;
+                }
+                String tag = stageVisualTag(blockLoc);
+                boolean exists = world.getEntitiesByClass(ItemDisplay.class).stream()
+                        .anyMatch(display -> display.getScoreboardTags().contains(tag));
+                Location center = blockLoc.clone().add(0.5, 0.52, 0.5);
+
+                if (stage == 2) {
+                    // Ledakan TNT mungil berulang selama Hard as a Diamond dipajang.
+                    world.spawnParticle(Particle.SMOKE, center, 3, 0.16, 0.13, 0.16, 0.005);
+                    world.spawnParticle(Particle.FLAME, center, 2, 0.14, 0.12, 0.14, 0.002);
+                    world.spawnParticle(Particle.EXPLOSION, center, 1, 0.10, 0.08, 0.10, 0);
+                }
+
+                if (exists || stage == 2) continue;
+                Material sword = stage == 1 ? Material.DIAMOND_SWORD : Material.NETHERITE_SWORD;
+                ItemDisplay display = world.spawn(center, ItemDisplay.class, entity -> {
+                    entity.setItemStack(new ItemStack(sword));
+                    entity.setItemDisplayTransform(ItemDisplay.ItemDisplayTransform.FIXED);
+                    entity.setPersistent(true);
+                    entity.setInvulnerable(true);
+                    entity.setSilent(true);
+                    entity.addScoreboardTag(tag);
+                    Quaternionf rotation = new Quaternionf();
+                    if (stage == 1) {
+                        // Pedang menancap diagonal 45 derajat ke bagian atas kepala.
+                        rotation.rotateZ((float) Math.toRadians(-45));
+                    } else {
+                        // Pedang horizontal di sisi depan, tampak seperti digigit.
+                        rotation.rotateZ((float) Math.toRadians(90));
+                    }
+                    entity.setTransformation(new Transformation(
+                            new Vector3f(0f, 0f, 0f), rotation,
+                            new Vector3f(0.72f, 0.72f, 0.72f), new Quaternionf()));
+                });
+                if (stage == 3) {
+                    // Dorong visual ke sisi depan kepala agar bilah tampak berada di mulut.
+                    org.bukkit.block.BlockState state = blockLoc.getBlock().getState();
+                    if (state instanceof org.bukkit.block.Skull skull && skull.getBlockData() instanceof org.bukkit.block.data.Rotatable rotatable) {
+                        org.bukkit.util.Vector facing = rotatable.getRotation().getDirection();
+                        display.teleport(center.clone().add(facing.multiply(0.28)));
+                        display.setRotation(display.getLocation().getYaw(), 0f);
+                    }
+                }
+            } catch (NumberFormatException ignored) {
+                getLogger().warning("Lokasi visual stage tidak valid: " + key);
+            }
+        }
+    }
+
+    private boolean isCustomHead(ItemStack item) {
+        String id = itemId(item);
+        return id.equals("player_head") || id.startsWith("stage_");
     }
 
     private void applyStage(Player p, int stage) {
@@ -559,8 +655,8 @@ public final class KASTARAPlayerKiller extends JavaPlugin implements Listener {
         if (!(e.getWhoClicked() instanceof Player)) return;
         ItemStack cursor = e.getCursor();
         ItemStack current = e.getCurrentItem();
-        boolean headCursor = itemId(cursor).equals("player_head");
-        boolean headCurrent = itemId(current).equals("player_head");
+        boolean headCursor = isCustomHead(cursor);
+        boolean headCurrent = isCustomHead(current);
         // SlotType.ARMOR berlaku pada survival, creative, dan layout inventory lainnya.
         boolean armorSlot = e.getSlotType() == InventoryType.SlotType.ARMOR;
         if ((armorSlot && headCursor) || (armorSlot && headCurrent) || (e.isShiftClick() && headCurrent)) {
@@ -571,7 +667,7 @@ public final class KASTARAPlayerKiller extends JavaPlugin implements Listener {
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void preventHeadDrag(InventoryDragEvent e) {
-        if (!itemId(e.getOldCursor()).equals("player_head")) return;
+        if (!isCustomHead(e.getOldCursor())) return;
         boolean targetsArmor = e.getRawSlots().stream()
                 .anyMatch(rawSlot -> e.getView().getSlotType(rawSlot) == InventoryType.SlotType.ARMOR);
         if (targetsArmor) {
