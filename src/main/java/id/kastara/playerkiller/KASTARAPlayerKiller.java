@@ -281,8 +281,8 @@ public final class KASTARAPlayerKiller extends JavaPlugin implements Listener {
                 getLogger().warning("Texture " + path + " harus URL textures.minecraft.net atau Base64 texture valid.");
                 return;
             }
-            org.bukkit.profile.PlayerProfile profile = Bukkit.createPlayerProfile(UUID.randomUUID());
-            org.bukkit.profile.PlayerTextures textures = profile.getTextures();
+            var profile = Bukkit.createProfile(UUID.randomUUID());
+            var textures = profile.getTextures();
             textures.setSkin(new URL(url));
             profile.setTextures(textures);
             meta.setPlayerProfile(profile);
