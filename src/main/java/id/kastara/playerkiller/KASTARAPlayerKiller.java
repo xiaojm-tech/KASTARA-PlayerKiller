@@ -500,7 +500,7 @@ public final class KASTARAPlayerKiller extends JavaPlugin implements Listener {
     // Semua visual adalah entity/particle dekoratif; tidak mengubah block dunia.
     private String stageVisualTag(Location location) {
         String identity = locKey(location.getBlock().getLocation());
-        return "kpk_stagefx_v3_" + UUID.nameUUIDFromBytes(identity.getBytes(java.nio.charset.StandardCharsets.UTF_8))
+        return "kpk_stagefx_v4_" + UUID.nameUUIDFromBytes(identity.getBytes(java.nio.charset.StandardCharsets.UTF_8))
                 .toString().replace("-", "");
     }
 
@@ -537,11 +537,15 @@ public final class KASTARAPlayerKiller extends JavaPlugin implements Listener {
                     continue;
                 }
                 String tag = stageVisualTag(blockLoc);
-                String previousTag = "kpk_stagefx_v2_" + UUID.nameUUIDFromBytes(
-                        locKey(blockLoc.getBlock().getLocation()).getBytes(java.nio.charset.StandardCharsets.UTF_8))
-                        .toString().replace("-", "");
+                String identity = UUID.nameUUIDFromBytes(locKey(blockLoc.getBlock().getLocation())
+                        .getBytes(java.nio.charset.StandardCharsets.UTF_8)).toString().replace("-", "");
+                String previousTagV2 = "kpk_stagefx_v2_" + identity;
+                String previousTagV3 = "kpk_stagefx_v3_" + identity;
                 for (ItemDisplay oldDisplay : world.getEntitiesByClass(ItemDisplay.class)) {
-                    if (oldDisplay.getScoreboardTags().contains(previousTag)) oldDisplay.remove();
+                    if (oldDisplay.getScoreboardTags().contains(previousTagV2)
+                            || oldDisplay.getScoreboardTags().contains(previousTagV3)
+                            || oldDisplay.getScoreboardTags().contains(previousTagV2 + "_helmet")
+                            || oldDisplay.getScoreboardTags().contains(previousTagV3 + "_helmet")) oldDisplay.remove();
                 }
                 boolean exists = world.getEntitiesByClass(ItemDisplay.class).stream()
                         .anyMatch(display -> display.getScoreboardTags().contains(tag));
@@ -558,11 +562,12 @@ public final class KASTARAPlayerKiller extends JavaPlugin implements Listener {
                     boolean helmetExists = world.getEntitiesByClass(ItemDisplay.class).stream()
                             .anyMatch(display -> display.getScoreboardTags().contains(helmetTag));
                     if (!helmetExists) {
-                        world.spawn(center.clone().add(0, 0.30, 0), ItemDisplay.class, helmet -> {
+                        world.spawn(center.clone().add(0, 0.18, 0), ItemDisplay.class, helmet -> {
                             helmet.setItemStack(new ItemStack(Material.DIAMOND_HELMET));
-                            helmet.setItemDisplayTransform(ItemDisplay.ItemDisplayTransform.FIXED);
+                            // Gunakan transform HEAD agar model helm mengikuti posisi helm yang sedang dipakai player.
+                            helmet.setItemDisplayTransform(ItemDisplay.ItemDisplayTransform.HEAD);
                             helmet.setTransformation(new Transformation(new Vector3f(0f, 0f, 0f),
-                                    new Quaternionf(), new Vector3f(0.78f, 0.78f, 0.78f), new Quaternionf()));
+                                    new Quaternionf(), new Vector3f(0.82f, 0.82f, 0.82f), new Quaternionf()));
                             helmet.setPersistent(true);
                             helmet.setInvulnerable(true);
                             helmet.setSilent(true);
@@ -591,8 +596,9 @@ public final class KASTARAPlayerKiller extends JavaPlugin implements Listener {
                         // Pedang menancap diagonal 45 derajat ke bagian atas kepala.
                         rotation.rotateZ((float) Math.toRadians(-45));
                     } else {
-                        // Stage 3: bilah mengarah ke bawah, seperti pedang ditancapkan dari atas.
-                        rotation.rotateZ((float) Math.toRadians(135));
+                        // Stage 3: rotasi 180 derajat membuat bilah tegak mengarah lurus ke bawah,
+                        // sementara gagang berada di atas kepala (bukan diagonal/rebah).
+                        rotation.rotateZ((float) Math.toRadians(180));
                     }
                     entity.setTransformation(new Transformation(
                             new Vector3f(0f, 0f, 0f), rotation,
@@ -602,8 +608,9 @@ public final class KASTARAPlayerKiller extends JavaPlugin implements Listener {
                 });
                 if (stage == 3) {
                     // Pangkal pedang berada di atas kepala; ujung bilah mengarah masuk ke skull.
-                    // Turunkan display agar bilah masuk lebih dalam dan tepat di tengah kepala.
-                    display.teleport(center.clone().add(0, -0.04, 0));
+                    // Tempatkan pedang pada sumbu tengah: gagang terlihat di atas,
+                    // sementara ujung bilah masuk ke bagian tengah atas Player Head.
+                    display.teleport(center.clone().add(0, 0.02, 0));
                 }
             } catch (NumberFormatException ignored) {
                 getLogger().warning("Lokasi visual stage tidak valid: " + key);
