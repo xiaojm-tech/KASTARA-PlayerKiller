@@ -551,7 +551,7 @@ public final class KASTARAPlayerKiller extends JavaPlugin implements Listener {
                     // Aura Warden/sculk sedikit lebih ramai, tetapi tetap rapat di sekitar kepala.
                     Location aura = center.clone().add(0, -0.08, 0);
                     world.spawnParticle(Particle.SCULK_SOUL, aura, 3, 0.16, 0.12, 0.16, 0.008);
-                    world.spawnParticle(Particle.SCULK_CHARGE, aura, 2, 0.13, 0.10, 0.13, 0.01);
+                    world.spawnParticle(Particle.SCULK_CHARGE, aura, 2, 0.13, 0.10, 0.13, 0.01, 0.0f);
                     world.spawnParticle(Particle.DUST, aura, 5, 0.17, 0.13, 0.17, 0,
                             new Particle.DustOptions(Color.fromRGB(35, 105, 125), 0.85f));
                     String helmetTag = tag + "_helmet";
