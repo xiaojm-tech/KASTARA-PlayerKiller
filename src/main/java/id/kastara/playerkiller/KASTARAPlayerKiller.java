@@ -164,6 +164,12 @@ public final class KASTARAPlayerKiller extends JavaPlugin implements Listener {
         resetProgress(victim);
         if (killer == null || killer.equals(victim)) return;
 
+        // Pemain yang sudah mencapai Player/Killer tidak lagi menghasilkan Player Head.
+        if (stages.getOrDefault(killer.getUniqueId(), 0) >= 3) {
+            killer.sendMessage(color(msg("final-stage-no-head", "&dPlayer/Killer &7sudah mencapai puncak. Kill berikutnya tidak menjatuhkan Player Head.")));
+            return;
+        }
+
         victim.getWorld().dropItemNaturally(victim.getLocation(), makePlayerHead(victim));
         if (firstHeadGuideSent.add(killer.getUniqueId())) {
             saveData();
@@ -505,7 +511,8 @@ public final class KASTARAPlayerKiller extends JavaPlugin implements Listener {
                 locKey(location.getBlock().getLocation()).getBytes(java.nio.charset.StandardCharsets.UTF_8))
                 .toString().replace("-", "");
         for (ItemDisplay display : location.getWorld().getEntitiesByClass(ItemDisplay.class)) {
-            if (display.getScoreboardTags().contains(tag) || display.getScoreboardTags().contains(legacyTag))
+            if (display.getScoreboardTags().contains(tag) || display.getScoreboardTags().contains(legacyTag)
+                    || display.getScoreboardTags().contains(tag + "_helmet"))
                 display.remove();
         }
     }
@@ -541,11 +548,27 @@ public final class KASTARAPlayerKiller extends JavaPlugin implements Listener {
                 Location center = blockLoc.clone().add(0.5, 0.52, 0.5);
 
                 if (stage == 2) {
-                    // Aura sculk/Warden kecil dan halus, tanpa ledakan besar.
-                    Location aura = center.clone().add(0, -0.10, 0);
-                    world.spawnParticle(Particle.SCULK_SOUL, aura, 2, 0.12, 0.10, 0.12, 0.005);
-                    world.spawnParticle(Particle.DUST, aura, 3, 0.15, 0.12, 0.15, 0,
-                            new Particle.DustOptions(Color.fromRGB(35, 105, 125), 0.8f));
+                    // Aura Warden/sculk sedikit lebih ramai, tetapi tetap rapat di sekitar kepala.
+                    Location aura = center.clone().add(0, -0.08, 0);
+                    world.spawnParticle(Particle.SCULK_SOUL, aura, 3, 0.16, 0.12, 0.16, 0.008);
+                    world.spawnParticle(Particle.SCULK_CHARGE, aura, 2, 0.13, 0.10, 0.13, 0.01);
+                    world.spawnParticle(Particle.DUST, aura, 5, 0.17, 0.13, 0.17, 0,
+                            new Particle.DustOptions(Color.fromRGB(35, 105, 125), 0.85f));
+                    String helmetTag = tag + "_helmet";
+                    boolean helmetExists = world.getEntitiesByClass(ItemDisplay.class).stream()
+                            .anyMatch(display -> display.getScoreboardTags().contains(helmetTag));
+                    if (!helmetExists) {
+                        world.spawn(center.clone().add(0, 0.30, 0), ItemDisplay.class, helmet -> {
+                            helmet.setItemStack(new ItemStack(Material.DIAMOND_HELMET));
+                            helmet.setItemDisplayTransform(ItemDisplay.ItemDisplayTransform.FIXED);
+                            helmet.setTransformation(new Transformation(new Vector3f(0f, 0f, 0f),
+                                    new Quaternionf(), new Vector3f(0.78f, 0.78f, 0.78f), new Quaternionf()));
+                            helmet.setPersistent(true);
+                            helmet.setInvulnerable(true);
+                            helmet.setSilent(true);
+                            helmet.addScoreboardTag(helmetTag);
+                        });
+                    }
                 }
                 if (stage == 3) {
                     // Pendarahan merah sangat kecil di titik pedang menancap.
@@ -569,7 +592,7 @@ public final class KASTARAPlayerKiller extends JavaPlugin implements Listener {
                         rotation.rotateZ((float) Math.toRadians(-45));
                     } else {
                         // Stage 3: bilah mengarah ke bawah, seperti pedang ditancapkan dari atas.
-                        rotation.rotateZ((float) Math.toRadians(180));
+                        rotation.rotateZ((float) Math.toRadians(135));
                     }
                     entity.setTransformation(new Transformation(
                             new Vector3f(0f, 0f, 0f), rotation,
@@ -579,7 +602,8 @@ public final class KASTARAPlayerKiller extends JavaPlugin implements Listener {
                 });
                 if (stage == 3) {
                     // Pangkal pedang berada di atas kepala; ujung bilah mengarah masuk ke skull.
-                    display.teleport(center.clone().add(0, 0.22, 0));
+                    // Turunkan display agar bilah masuk lebih dalam dan tepat di tengah kepala.
+                    display.teleport(center.clone().add(0, -0.04, 0));
                 }
             } catch (NumberFormatException ignored) {
                 getLogger().warning("Lokasi visual stage tidak valid: " + key);
@@ -671,9 +695,14 @@ public final class KASTARAPlayerKiller extends JavaPlugin implements Listener {
         ItemStack current = e.getCurrentItem();
         boolean headCursor = isCustomHead(cursor);
         boolean headCurrent = isCustomHead(current);
-        // SlotType.ARMOR berlaku pada survival, creative, dan layout inventory lainnya.
+        // Blokir hanya interaksi yang benar-benar menuju slot armor kepala.
+        // Shift-click di chest/container harus tetap bisa memindahkan item custom.
         boolean armorSlot = e.getSlotType() == InventoryType.SlotType.ARMOR;
-        if ((armorSlot && headCursor) || (armorSlot && headCurrent) || (e.isShiftClick() && headCurrent)) {
+        boolean autoEquipFromPlayerInventory = e.isShiftClick()
+                && e.getClickedInventory() instanceof PlayerInventory
+                && e.getView().getTopInventory().getType() == InventoryType.CRAFTING
+                && headCurrent;
+        if ((armorSlot && (headCursor || headCurrent)) || autoEquipFromPlayerInventory) {
             e.setCancelled(true);
             e.getWhoClicked().sendMessage(color(msg("head-equip-blocked", "&cPlayer Head tidak bisa dipakai sebagai helmet.")));
         }
