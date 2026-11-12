@@ -1,0 +1,14 @@
+name: KASTARA-PlayerKiller
+version: 1.0.0
+main: id.kastara.playerkiller.KASTARAPlayerKiller
+api-version: '1.21'
+authors: [KASTARA]
+description: Three-stage Player Head progression integrated with KASTARALives.
+depend: [KASTARALives]
+commands:
+  playerkiller:
+    description: KASTARA PlayerKiller administration
+    usage: /playerkiller reload
+permissions:
+  kastaraplayerkiller.admin:
+    default: op
