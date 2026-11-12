@@ -447,8 +447,9 @@ public final class KASTARAPlayerKiller extends JavaPlugin implements Listener {
         ItemStack current = e.getCurrentItem();
         boolean headCursor = itemId(cursor).equals("player_head");
         boolean headCurrent = itemId(current).equals("player_head");
-        // Slot 5 adalah helmet pada player inventory; shift-click juga dicegah.
-        if ((e.getSlot() == 5 && headCursor) || (e.isShiftClick() && headCurrent)) {
+        // SlotType.ARMOR berlaku pada survival, creative, dan layout inventory lainnya.
+        boolean armorSlot = e.getSlotType() == InventoryType.SlotType.ARMOR;
+        if ((armorSlot && headCursor) || (armorSlot && headCurrent) || (e.isShiftClick() && headCurrent)) {
             e.setCancelled(true);
             e.getWhoClicked().sendMessage(color(msg("head-equip-blocked", "&cPlayer Head tidak bisa dipakai sebagai helmet.")));
         }
@@ -457,7 +458,9 @@ public final class KASTARAPlayerKiller extends JavaPlugin implements Listener {
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void preventHeadDrag(InventoryDragEvent e) {
         if (!itemId(e.getOldCursor()).equals("player_head")) return;
-        if (e.getRawSlots().contains(5)) {
+        boolean targetsArmor = e.getRawSlots().stream()
+                .anyMatch(rawSlot -> e.getView().getSlotType(rawSlot) == InventoryType.SlotType.ARMOR);
+        if (targetsArmor) {
             e.setCancelled(true);
             e.getWhoClicked().sendMessage(color(msg("head-equip-blocked", "&cPlayer Head tidak bisa dipakai sebagai helmet.")));
         }
@@ -477,14 +480,16 @@ public final class KASTARAPlayerKiller extends JavaPlugin implements Listener {
 
     private void openRecipeDetail(Player p, int stage) {
         RecipeHolder holder = new RecipeHolder(stage);
-        Inventory inv = Bukkit.createInventory(holder, 27, "§8Recipe • " + defaultStageName(stage));
+        Inventory inv = Bukkit.createInventory(holder, 45, "§8Recipe • " + defaultStageName(stage));
         holder.inventory = inv;
+        ItemStack filler = named(Material.GRAY_STAINED_GLASS_PANE, " ");
+        for (int i = 0; i < inv.getSize(); i++) inv.setItem(i, filler);
         String base = "recipes.stage-" + stage + ".";
         List<String> rows = getConfig().getStringList(base + "shape");
         if (rows.size() != 3) rows = switch (stage) {
             case 1 -> List.of("DSD", "DHD", "DDD");
             case 2 -> List.of("DSD", "DHD", "DCD");
-            default -> List.of("HNH", "SDC", "DDD");
+            default -> List.of("HNH", "SHC", "DDD");
         };
         Map<Character, Material> mats = new HashMap<>();
         for (char c : new char[]{'D','S','C','N','H'}) {
@@ -493,7 +498,7 @@ public final class KASTARAPlayerKiller extends JavaPlugin implements Listener {
             Material m = Material.matchMaterial(getConfig().getString(base + "ingredients." + c, fallback));
             mats.put(c, m == null ? Material.BARRIER : m);
         }
-        int[] slots = {10,11,12,13,14,15,16,17,18};
+        int[] slots = {10,11,12,19,20,21,28,29,30};
         for (int r=0;r<3;r++) for (int c=0;c<3;c++) {
             char symbol = rows.get(r).charAt(c);
             if (symbol == ' ') continue;
@@ -504,8 +509,10 @@ public final class KASTARAPlayerKiller extends JavaPlugin implements Listener {
             ingredient.setItemMeta(meta);
             inv.setItem(slots[r*3+c], ingredient);
         }
-        inv.setItem(22, named(Material.ARROW, "&eKembali"));
-        inv.setItem(26, named(Material.BARRIER, "&cTutup"));
+        inv.setItem(23, named(Material.ARROW, "&eMenghasilkan"));
+        inv.setItem(25, makeStageItem(stage, null));
+        inv.setItem(40, named(Material.ARROW, "&eKembali"));
+        inv.setItem(44, named(Material.BARRIER, "&cTutup"));
         p.openInventory(inv);
     }
 
@@ -524,8 +531,8 @@ public final class KASTARAPlayerKiller extends JavaPlugin implements Listener {
             if (slot == 11) openRecipeDetail(p, 1);
             else if (slot == 13) openRecipeDetail(p, 2);
             else if (slot == 15) openRecipeDetail(p, 3);
-        } else if (e.getRawSlot() == 22) openRecipeMenu(p);
-        else if (e.getRawSlot() == 26) p.closeInventory();
+        } else if (e.getRawSlot() == 40) openRecipeMenu(p);
+        else if (e.getRawSlot() == 44) p.closeInventory();
     }
 
     private static final class RecipeHolder implements InventoryHolder {
@@ -550,9 +557,8 @@ public final class KASTARAPlayerKiller extends JavaPlugin implements Listener {
     private List<String> lines(String path) {
         List<String> list = getConfig().getStringList(path);
         if (list.isEmpty()) list = List.of(
-                "&7Letakkan kepala ini di tanah dengan klik kanan.",
-                "&7Lihat kepala tersebut lalu tekan &fShift + Klik Kanan&7.",
-                "&cEfek dan progres hilang jika kamu mati / kehilangan life.");
+                "&7Gunakan sebagai bahan crafting tahap Player/Killer.",
+                "&e/recipe untuk upgrade");
         List<String> out = new ArrayList<>();
         for (String line : list) out.add(color(line));
         return out;
