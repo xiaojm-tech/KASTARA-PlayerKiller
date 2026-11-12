@@ -204,8 +204,8 @@ public final class KASTARAPlayerKiller extends JavaPlugin implements Listener {
         mark(meta, "stage_" + stage);
         meta.setDisplayName(color(msg("stage-" + stage + "-name", defaultStageName(stage))));
         meta.setLore(lines("stage-" + stage + "-lore"));
+        // Enchantment glint aktif untuk semua item Stage 1, 2, dan 3.
         meta.addEnchant(Enchantment.UNBREAKING, 1, true);
-        meta.addItemFlags(ItemFlag.HIDE_ENCHANTS);
         applyTexture(meta, "textures.stage-" + stage);
         item.setItemMeta(meta);
         return item;
