@@ -5,7 +5,7 @@ Paper plugin for KASTARA. Requires KASTARALives.
 ## Features
 - Player head drops on PvP kill, with PDC marker and anti-helmet protection.
 - Three progression stages and configurable shaped recipes.
-- Stage 3 recipe: `HNH / SDC / DDD` (H=custom Player Head, N=Netherite Ingot, S=Diamond Sword, C=Diamond Chestplate, D=Diamond).
+- Stage 3 recipe: `HNH / SHC / DDD` (H=custom Player Head, N=Netherite Ingot, S=Diamond Sword, C=Diamond Chestplate, D=Diamond).
 - `/recipe` opens a stage selector and 3x3 recipe preview.
 - Activation animation, firework particles, configurable sound and final title.
 - Permanent progression effects yield to stronger vanilla potion effects until those expire.

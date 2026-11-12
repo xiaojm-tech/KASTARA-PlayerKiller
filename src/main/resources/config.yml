@@ -16,7 +16,7 @@ recipes:
   stage-3:
     # H=Player Head, N=Netherite Ingot, S=Diamond Sword,
     # C=Diamond Chestplate, D=Diamond
-    shape: ["HNH", "SDC", "DDD"]
+    shape: ["HNH", "SHC", "DDD"]
     ingredients: {H: PLAYER_HEAD, N: NETHERITE_INGOT, S: DIAMOND_SWORD, C: DIAMOND_CHESTPLATE, D: DIAMOND}
 
 effects:

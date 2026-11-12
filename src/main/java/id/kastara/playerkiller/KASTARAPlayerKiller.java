@@ -134,12 +134,18 @@ public final class KASTARAPlayerKiller extends JavaPlugin implements Listener {
     }
 
     private void clearEffects(Player p, boolean notify) {
-        p.removePotionEffect(PotionEffectType.STRENGTH);
-        p.removePotionEffect(PotionEffectType.RESISTANCE);
+        removeManagedEffect(p, PotionEffectType.STRENGTH);
+        removeManagedEffect(p, PotionEffectType.RESISTANCE);
         if (notify) {
             p.sendMessage(color(msg("reset-message", "&cNyawa berkurang! Semua efek dan progres Player/Killer telah di-reset.")));
             p.sendActionBar(color(msg("reset-actionbar", "&cProgres Player/Killer di-reset")));
         }
+    }
+
+    private void removeManagedEffect(Player p, PotionEffectType type) {
+        PotionEffect current = p.getPotionEffect(type);
+        int managedAmplifier = stages.getOrDefault(p.getUniqueId(), 0) == 3 ? 1 : 0;
+        if (current != null && current.getAmplifier() <= managedAmplifier) p.removePotionEffect(type);
     }
 
     private void resetProgress(Player p) {
@@ -240,7 +246,7 @@ public final class KASTARAPlayerKiller extends JavaPlugin implements Listener {
         if (rows.size() != 3) rows = switch (stage) {
             case 1 -> List.of("DSD", "DHD", "DDD");
             case 2 -> List.of("DSD", "DHD", "DCD");
-            default -> List.of("HNH", "SDC", "DDD");
+            default -> List.of("HNH", "SHC", "DDD");
         };
         NamespacedKey key = new NamespacedKey(this, "stage_" + stage);
         ShapedRecipe recipe = new ShapedRecipe(key, makeStageItem(stage, null));
@@ -493,7 +499,7 @@ public final class KASTARAPlayerKiller extends JavaPlugin implements Listener {
             Material m = Material.matchMaterial(getConfig().getString(base + "ingredients." + c, fallback));
             mats.put(c, m == null ? Material.BARRIER : m);
         }
-        int[] slots = {10,11,12,13,14,15,16,19,20};
+        int[] slots = {10,11,12,13,14,15,16,17,18};
         for (int r=0;r<3;r++) for (int c=0;c<3;c++) {
             char symbol = rows.get(r).charAt(c);
             if (symbol == ' ') continue;
