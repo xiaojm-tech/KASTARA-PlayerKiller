@@ -494,7 +494,7 @@ public final class KASTARAPlayerKiller extends JavaPlugin implements Listener {
     // Semua visual adalah entity/particle dekoratif; tidak mengubah block dunia.
     private String stageVisualTag(Location location) {
         String identity = locKey(location.getBlock().getLocation());
-        return "kpk_stagefx_v2_" + UUID.nameUUIDFromBytes(identity.getBytes(java.nio.charset.StandardCharsets.UTF_8))
+        return "kpk_stagefx_v3_" + UUID.nameUUIDFromBytes(identity.getBytes(java.nio.charset.StandardCharsets.UTF_8))
                 .toString().replace("-", "");
     }
 
@@ -530,6 +530,12 @@ public final class KASTARAPlayerKiller extends JavaPlugin implements Listener {
                     continue;
                 }
                 String tag = stageVisualTag(blockLoc);
+                String previousTag = "kpk_stagefx_v2_" + UUID.nameUUIDFromBytes(
+                        locKey(blockLoc.getBlock().getLocation()).getBytes(java.nio.charset.StandardCharsets.UTF_8))
+                        .toString().replace("-", "");
+                for (ItemDisplay oldDisplay : world.getEntitiesByClass(ItemDisplay.class)) {
+                    if (oldDisplay.getScoreboardTags().contains(previousTag)) oldDisplay.remove();
+                }
                 boolean exists = world.getEntitiesByClass(ItemDisplay.class).stream()
                         .anyMatch(display -> display.getScoreboardTags().contains(tag));
                 Location center = blockLoc.clone().add(0.5, 0.52, 0.5);
@@ -540,6 +546,12 @@ public final class KASTARAPlayerKiller extends JavaPlugin implements Listener {
                     world.spawnParticle(Particle.SCULK_SOUL, aura, 2, 0.12, 0.10, 0.12, 0.005);
                     world.spawnParticle(Particle.DUST, aura, 3, 0.15, 0.12, 0.15, 0,
                             new Particle.DustOptions(Color.fromRGB(35, 105, 125), 0.8f));
+                }
+                if (stage == 3) {
+                    // Pendarahan merah sangat kecil di titik pedang menancap.
+                    Location wound = center.clone().add(0, 0.28, 0);
+                    world.spawnParticle(Particle.DUST, wound, 2, 0.035, 0.025, 0.035, 0,
+                            new Particle.DustOptions(Color.fromRGB(175, 8, 18), 0.55f));
                 }
 
                 if (exists || stage == 2) continue;
@@ -556,8 +568,8 @@ public final class KASTARAPlayerKiller extends JavaPlugin implements Listener {
                         // Pedang menancap diagonal 45 derajat ke bagian atas kepala.
                         rotation.rotateZ((float) Math.toRadians(-45));
                     } else {
-                        // Pedang dibuat sedikit menyilang seperti sedang digigit.
-                        rotation.rotateZ((float) Math.toRadians(78));
+                        // Stage 3: bilah mengarah ke bawah, seperti pedang ditancapkan dari atas.
+                        rotation.rotateZ((float) Math.toRadians(180));
                     }
                     entity.setTransformation(new Transformation(
                             new Vector3f(0f, 0f, 0f), rotation,
@@ -566,18 +578,8 @@ public final class KASTARAPlayerKiller extends JavaPlugin implements Listener {
                                     stage == 3 ? 0.58f : 0.72f), new Quaternionf()));
                 });
                 if (stage == 3) {
-                    // Tempatkan Netherite Sword tepat di muka/mulut sesuai arah hadap skull.
-                    org.bukkit.block.BlockState state = blockLoc.getBlock().getState();
-                    if (state instanceof org.bukkit.block.Skull skull
-                            && skull.getBlockData() instanceof org.bukkit.block.data.Rotatable rotatable) {
-                        org.bukkit.util.Vector facing = rotatable.getRotation().getDirection().normalize();
-                        Location mouth = center.clone().add(facing.multiply(0.42)).add(0, -0.18, 0);
-                        display.teleport(mouth);
-                        float yaw = (float) Math.toDegrees(Math.atan2(-facing.getX(), facing.getZ()));
-                        display.setRotation(yaw, 0f);
-                    } else {
-                        display.teleport(center.clone().add(0, -0.18, 0.42));
-                    }
+                    // Pangkal pedang berada di atas kepala; ujung bilah mengarah masuk ke skull.
+                    display.teleport(center.clone().add(0, 0.22, 0));
                 }
             } catch (NumberFormatException ignored) {
                 getLogger().warning("Lokasi visual stage tidak valid: " + key);
