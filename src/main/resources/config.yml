@@ -29,12 +29,8 @@ final-title:
   subtitle: "&7are you a player or a killer??"
 
 player-head-lore:
-  - "&7Drop dari membunuh player lain."
   - "&7Gunakan sebagai bahan crafting tahap Player/Killer."
-  - "&7Tidak dapat dipakai sebagai helmet."
-  - "&7Letakkan hasil craft di tanah dengan klik kanan."
-  - "&7Lihat kepala tersebut lalu tekan &fShift + Klik Kanan&7."
-  - "&cEfek dan progres hilang jika kamu mati / kehilangan life."
+  - "&e/recipe untuk upgrade"
 stage-1-name: "&bSharp as a Diamond"
 stage-1-lore:
   - "&7Bloody Diamond • Enchanted"
