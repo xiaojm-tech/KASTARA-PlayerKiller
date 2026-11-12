@@ -500,7 +500,7 @@ public final class KASTARAPlayerKiller extends JavaPlugin implements Listener {
     // Semua visual adalah entity/particle dekoratif; tidak mengubah block dunia.
     private String stageVisualTag(Location location) {
         String identity = locKey(location.getBlock().getLocation());
-        return "kpk_stagefx_v4_" + UUID.nameUUIDFromBytes(identity.getBytes(java.nio.charset.StandardCharsets.UTF_8))
+        return "kpk_stagefx_v5_" + UUID.nameUUIDFromBytes(identity.getBytes(java.nio.charset.StandardCharsets.UTF_8))
                 .toString().replace("-", "");
     }
 
@@ -510,9 +510,18 @@ public final class KASTARAPlayerKiller extends JavaPlugin implements Listener {
         String legacyTag = "kpk_stagefx_" + UUID.nameUUIDFromBytes(
                 locKey(location.getBlock().getLocation()).getBytes(java.nio.charset.StandardCharsets.UTF_8))
                 .toString().replace("-", "");
+        String identity = UUID.nameUUIDFromBytes(
+                locKey(location.getBlock().getLocation()).getBytes(java.nio.charset.StandardCharsets.UTF_8))
+                .toString().replace("-", "");
         for (ItemDisplay display : location.getWorld().getEntitiesByClass(ItemDisplay.class)) {
-            if (display.getScoreboardTags().contains(tag) || display.getScoreboardTags().contains(legacyTag)
-                    || display.getScoreboardTags().contains(tag + "_helmet"))
+            Set<String> tags = display.getScoreboardTags();
+            if (tags.contains(tag) || tags.contains(legacyTag)
+                    || tags.contains("kpk_stagefx_v4_" + identity)
+                    || tags.contains("kpk_stagefx_v4_" + identity + "_helmet")
+                    || tags.contains("kpk_stagefx_v3_" + identity)
+                    || tags.contains("kpk_stagefx_v3_" + identity + "_helmet")
+                    || tags.contains("kpk_stagefx_v2_" + identity)
+                    || tags.contains("kpk_stagefx_v2_" + identity + "_helmet"))
                 display.remove();
         }
     }
@@ -541,39 +550,29 @@ public final class KASTARAPlayerKiller extends JavaPlugin implements Listener {
                         .getBytes(java.nio.charset.StandardCharsets.UTF_8)).toString().replace("-", "");
                 String previousTagV2 = "kpk_stagefx_v2_" + identity;
                 String previousTagV3 = "kpk_stagefx_v3_" + identity;
+                String previousTagV4 = "kpk_stagefx_v4_" + identity;
                 for (ItemDisplay oldDisplay : world.getEntitiesByClass(ItemDisplay.class)) {
                     if (oldDisplay.getScoreboardTags().contains(previousTagV2)
                             || oldDisplay.getScoreboardTags().contains(previousTagV3)
+                            || oldDisplay.getScoreboardTags().contains(previousTagV4)
                             || oldDisplay.getScoreboardTags().contains(previousTagV2 + "_helmet")
-                            || oldDisplay.getScoreboardTags().contains(previousTagV3 + "_helmet")) oldDisplay.remove();
+                            || oldDisplay.getScoreboardTags().contains(previousTagV3 + "_helmet")
+                            || oldDisplay.getScoreboardTags().contains(previousTagV4 + "_helmet")) oldDisplay.remove();
                 }
                 boolean exists = world.getEntitiesByClass(ItemDisplay.class).stream()
                         .anyMatch(display -> display.getScoreboardTags().contains(tag));
                 Location center = blockLoc.clone().add(0.5, 0.52, 0.5);
 
                 if (stage == 2) {
-                    // Aura Warden/sculk sedikit lebih ramai, tetapi tetap rapat di sekitar kepala.
+                    // Aura Warden/sculk tetap menjadi efek utama di sekitar kepala.
                     Location aura = center.clone().add(0, -0.08, 0);
                     world.spawnParticle(Particle.SCULK_SOUL, aura, 3, 0.16, 0.12, 0.16, 0.008);
                     world.spawnParticle(Particle.SCULK_CHARGE, aura, 2, 0.13, 0.10, 0.13, 0.01, 0.0f);
                     world.spawnParticle(Particle.DUST, aura, 5, 0.17, 0.13, 0.17, 0,
                             new Particle.DustOptions(Color.fromRGB(35, 105, 125), 0.85f));
-                    String helmetTag = tag + "_helmet";
-                    boolean helmetExists = world.getEntitiesByClass(ItemDisplay.class).stream()
-                            .anyMatch(display -> display.getScoreboardTags().contains(helmetTag));
-                    if (!helmetExists) {
-                        world.spawn(center.clone().add(0, 0.18, 0), ItemDisplay.class, helmet -> {
-                            helmet.setItemStack(new ItemStack(Material.DIAMOND_HELMET));
-                            // Gunakan transform HEAD agar model helm mengikuti posisi helm yang sedang dipakai player.
-                            helmet.setItemDisplayTransform(ItemDisplay.ItemDisplayTransform.HEAD);
-                            helmet.setTransformation(new Transformation(new Vector3f(0f, 0f, 0f),
-                                    new Quaternionf(), new Vector3f(0.82f, 0.82f, 0.82f), new Quaternionf()));
-                            helmet.setPersistent(true);
-                            helmet.setInvulnerable(true);
-                            helmet.setSilent(true);
-                            helmet.addScoreboardTag(helmetTag);
-                        });
-                    }
+                    // Asap kecil sebagai aksen tambahan, jauh lebih halus daripada aura Warden.
+                    world.spawnParticle(Particle.SMOKE, aura.clone().add(0, 0.02, 0), 2,
+                            0.055, 0.045, 0.055, 0.002);
                 }
                 if (stage == 3) {
                     // Pendarahan merah sangat kecil di titik pedang menancap.
