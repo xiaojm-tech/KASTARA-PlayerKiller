@@ -456,7 +456,7 @@ public final class KASTARAPlayerKiller extends JavaPlugin implements Listener {
                     "ITEM_NETHERITE_UPGRADE_SMITHING_TEMPLATE_USE"));
             p.playSound(at, sound, 1.0f, 1.0f);
         } catch (IllegalArgumentException ex) {
-            p.playSound(at, Sound.ITEM_NETHERITE_UPGRADE_SMITHING_TEMPLATE_USE, 1.0f, 1.0f);
+            p.playSound(at, Sound.UI_TOAST_CHALLENGE_COMPLETE, 1.0f, 1.0f);
         }
     }
 
