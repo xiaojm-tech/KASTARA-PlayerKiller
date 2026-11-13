@@ -8,10 +8,13 @@ depend: [KASTARALives]
 commands:
   playerkiller:
     description: KASTARA PlayerKiller administration
-    usage: /playerkiller reload
+    usage: /playerkiller reload | /playerkiller givehead <player>
   recipe:
     description: Lihat resep Player/Killer
     usage: /recipe
+  giveplayerhead:
+    description: Berikan custom Player Head untuk testing
+    usage: /giveplayerhead <player>
 permissions:
   kastaraplayerkiller.admin:
     default: op
