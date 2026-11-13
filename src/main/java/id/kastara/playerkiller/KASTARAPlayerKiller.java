@@ -47,6 +47,7 @@ public final class KASTARAPlayerKiller extends JavaPlugin implements Listener {
     private NamespacedKey itemKey;
     private final Map<UUID, Integer> stages = new HashMap<>();
     private final Map<UUID, Integer> lifeSnapshot = new ConcurrentHashMap<>();
+    private final Map<UUID, List<ItemDisplay>> stage2ShieldHalos = new HashMap<>();
     private final Set<UUID> firstHeadGuideSent = new HashSet<>();
     private Object lifeManager;
     private Method getLivesMethod;
@@ -94,11 +95,15 @@ public final class KASTARAPlayerKiller extends JavaPlugin implements Listener {
         // Efek redstone dust dekoratif di lantai sekitar kepala yang sedang dipajang.
         Bukkit.getScheduler().runTaskTimer(this, this::spawnPlacedHeadRedstone, 10L, 10L);
         Bukkit.getScheduler().runTaskTimer(this, this::updateStageFloorVisuals, 5L, 10L);
+        Bukkit.getScheduler().runTaskTimer(this, this::updateStage2ShieldHalos, 1L, 1L);
         getLogger().info("KASTARA-PlayerKiller enabled; hooked into KASTARALives.");
     }
 
     @Override public void onDisable() {
         if (pollTask != null) pollTask.cancel();
+        for (List<ItemDisplay> displays : stage2ShieldHalos.values())
+            for (ItemDisplay display : displays) if (display.isValid()) display.remove();
+        stage2ShieldHalos.clear();
         saveData();
     }
 
@@ -240,7 +245,7 @@ public final class KASTARAPlayerKiller extends JavaPlugin implements Listener {
         return switch (stage) {
             case 1 -> "&bSharp as a Diamond";
             case 2 -> "&bHard as a Diamond";
-            default -> "&cPlayer/Killer";
+            default -> "&cAbsolute Unit";
         };
     }
 
@@ -416,10 +421,6 @@ public final class KASTARAPlayerKiller extends JavaPlugin implements Listener {
         removeStageVisuals(block.getLocation());
         saveData();
         p.sendMessage(color(msg("activated-" + stage, "&aTahap " + stage + " berhasil diaktifkan!")));
-        if (stage == 3) p.sendTitle(
-                color(getConfig().getString("final-title.title", "&d&lare you a player or a killer??")),
-                color(getConfig().getString("final-title.subtitle", "&7")),
-                10, 60, 20);
         p.sendActionBar(color(msg("activated-actionbar", "&bPlayer/Killer &f| &aEfek aktif")));
     }
 
@@ -579,6 +580,10 @@ public final class KASTARAPlayerKiller extends JavaPlugin implements Listener {
                     Location wound = center.clone().add(0, 0.28, 0);
                     world.spawnParticle(Particle.DUST, wound, 2, 0.035, 0.025, 0.035, 0,
                             new Particle.DustOptions(Color.fromRGB(175, 8, 18), 0.55f));
+                    // Api dekoratif sangat kecil; redstone/darah tetap menjadi efek dominan.
+                    Location ember = center.clone().add(0, -0.46, 0);
+                    world.spawnParticle(Particle.FLAME, ember, 1, 0.035, 0.008, 0.035, 0.001);
+                    world.spawnParticle(Particle.SMOKE, ember, 1, 0.025, 0.008, 0.025, 0.001);
                 }
 
                 if (exists || stage == 2) continue;
@@ -617,6 +622,74 @@ public final class KASTARAPlayerKiller extends JavaPlugin implements Listener {
         }
     }
 
+    // Empat ItemDisplay SHIELD membentuk halo yang mengorbit kepala player pada Stage 2.
+    private void updateStage2ShieldHalos() {
+        long now = System.currentTimeMillis();
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            UUID id = player.getUniqueId();
+            if (stages.getOrDefault(id, 0) != 2) {
+                removeStage2ShieldHalo(id);
+                continue;
+            }
+            List<ItemDisplay> displays = stage2ShieldHalos.get(id);
+            if (displays == null || displays.stream().anyMatch(d -> !d.isValid())) {
+                removeStage2ShieldHalo(id);
+                displays = new ArrayList<>();
+                for (int i = 0; i < 4; i++) {
+                    ItemDisplay shield = player.getWorld().spawn(player.getLocation(), ItemDisplay.class, entity -> {
+                        entity.setItemStack(new ItemStack(Material.SHIELD));
+                        entity.setItemDisplayTransform(ItemDisplay.ItemDisplayTransform.FIXED);
+                        entity.setPersistent(false);
+                        entity.setInvulnerable(true);
+                        entity.setSilent(true);
+                        entity.setTransformation(new Transformation(
+                                new Vector3f(0f, 0f, 0f), new Quaternionf(),
+                                new Vector3f(0.30f, 0.30f, 0.30f), new Quaternionf()));
+                    });
+                    displays.add(shield);
+                }
+                stage2ShieldHalos.put(id, displays);
+            }
+            Location head = player.getLocation().add(0, 2.05, 0);
+            double phase = now * 0.00135;
+            for (int i = 0; i < displays.size(); i++) {
+                double angle = phase + (Math.PI * 2.0 * i / 4.0);
+                Location orbit = head.clone().add(Math.cos(angle) * 0.72,
+                        Math.sin(angle * 2.0) * 0.10, Math.sin(angle) * 0.72);
+                ItemDisplay shield = displays.get(i);
+                shield.teleport(orbit);
+                shield.setRotation((float) Math.toDegrees(-angle) + 90.0f, 0.0f);
+            }
+        }
+        for (UUID id : new HashSet<>(stage2ShieldHalos.keySet())) {
+            if (Bukkit.getPlayer(id) == null) removeStage2ShieldHalo(id);
+        }
+    }
+
+    private void removeStage2ShieldHalo(UUID id) {
+        List<ItemDisplay> displays = stage2ShieldHalos.remove(id);
+        if (displays != null) for (ItemDisplay display : displays)
+            if (display.isValid()) display.remove();
+    }
+
+    private void showGlitchSubtitle(Player player) {
+        // String yang tampil tetap persis "Limit Breaker"; glitch dibuat lewat flicker merah.
+        String subtitle = color("&c&lLimit Breaker");
+        player.sendTitle("", subtitle, 0, 65, 10);
+        Bukkit.getScheduler().runTaskLater(this, () -> {
+            if (player.isOnline()) player.sendTitle("", color("&4&lLimit Breaker"), 0, 65, 10);
+        }, 2L);
+        Bukkit.getScheduler().runTaskLater(this, () -> {
+            if (player.isOnline()) player.sendTitle("", subtitle, 0, 65, 10);
+        }, 4L);
+        Bukkit.getScheduler().runTaskLater(this, () -> {
+            if (player.isOnline()) player.sendTitle("", color("&4&lLimit Breaker"), 0, 65, 10);
+        }, 6L);
+        Bukkit.getScheduler().runTaskLater(this, () -> {
+            if (player.isOnline()) player.sendTitle("", subtitle, 0, 65, 10);
+        }, 8L);
+    }
+
     private boolean isCustomHead(ItemStack item) {
         String id = itemId(item);
         return id.equals("player_head") || id.startsWith("stage_");
@@ -643,50 +716,142 @@ public final class KASTARAPlayerKiller extends JavaPlugin implements Listener {
 
     private void playActivationEffects(Player p, int stage, Location at) {
         World world = at.getWorld();
-
-        // Suara pengisian respawn anchor saat kepala mulai terangkat.
         world.playSound(at, Sound.BLOCK_RESPAWN_ANCHOR_CHARGE, 1.0f, 1.0f);
 
-        Item entity = world.dropItem(at, makeStageItem(stage, null));
-        entity.setPickupDelay(Integer.MAX_VALUE);
-        entity.setGravity(false);
-        entity.setVelocity(new org.bukkit.util.Vector(0, 0, 0));
+        Item headEntity = world.dropItem(at, makeStageItem(stage, null));
+        headEntity.setPickupDelay(Integer.MAX_VALUE);
+        headEntity.setGravity(false);
+        headEntity.setVelocity(new org.bukkit.util.Vector(0, 0, 0));
 
+        if (stage == 3) {
+            // Empat End Crystal kecil mengorbit badan, lalu konvergen ke tengah dada.
+            List<ItemDisplay> crystals = new ArrayList<>();
+            for (int i = 0; i < 4; i++) {
+                ItemDisplay crystal = world.spawn(p.getLocation(), ItemDisplay.class, display -> {
+                    display.setItemStack(new ItemStack(Material.END_CRYSTAL));
+                    display.setItemDisplayTransform(ItemDisplay.ItemDisplayTransform.FIXED);
+                    display.setPersistent(false);
+                    display.setInvulnerable(true);
+                    display.setSilent(true);
+                    display.setTransformation(new Transformation(
+                            new Vector3f(0f, 0f, 0f), new Quaternionf(),
+                            new Vector3f(0.20f, 0.20f, 0.20f), new Quaternionf()));
+                });
+                crystals.add(crystal);
+            }
+
+            final BukkitTask[] animation = new BukkitTask[1];
+            animation[0] = Bukkit.getScheduler().runTaskTimer(this, new Runnable() {
+                private int ticks = 0;
+
+                @Override public void run() {
+                    if (!p.isOnline() || !p.isValid()) {
+                        if (headEntity.isValid()) headEntity.remove();
+                        for (ItemDisplay crystal : crystals) if (crystal.isValid()) crystal.remove();
+                        animation[0].cancel();
+                        return;
+                    }
+
+                    Location playerBase = p.getLocation();
+                    if (ticks < 30 && headEntity.isValid()) {
+                        Location risingHead = headEntity.getLocation().add(0, 0.065, 0);
+                        headEntity.teleport(risingHead);
+                        world.spawnParticle(Particle.GLOW, risingHead, 7, 0.20, 0.16, 0.20, 0.01);
+                        world.spawnParticle(Particle.END_ROD, risingHead, 3, 0.13, 0.13, 0.13, 0.005);
+                    }
+
+                    Location chest = playerBase.clone().add(0, 1.18, 0);
+                    double orbitPhase = ticks * 0.16;
+                    for (int i = 0; i < crystals.size(); i++) {
+                        ItemDisplay crystal = crystals.get(i);
+                        if (!crystal.isValid()) continue;
+                        double angle = orbitPhase + (Math.PI * 2.0 * i / 4.0);
+                        Location orbit = playerBase.clone().add(
+                                Math.cos(angle) * 1.05,
+                                0.95 + Math.sin(ticks * 0.12 + i) * 0.35,
+                                Math.sin(angle) * 1.05);
+                        Location target;
+                        if (ticks < 48) {
+                            target = orbit;
+                        } else {
+                            double progress = Math.min(1.0, (ticks - 48) / 23.0);
+                            double startAngle = (48 * 0.16) + (Math.PI * 2.0 * i / 4.0);
+                            Location startOrbit = playerBase.clone().add(
+                                    Math.cos(startAngle) * 1.05,
+                                    0.95 + Math.sin(48 * 0.12 + i) * 0.35,
+                                    Math.sin(startAngle) * 1.05);
+                            target = startOrbit.clone().add(
+                                    (chest.getX() - startOrbit.getX()) * progress,
+                                    (chest.getY() - startOrbit.getY()) * progress,
+                                    (chest.getZ() - startOrbit.getZ()) * progress);
+                        }
+                        crystal.teleport(target);
+                        crystal.setRotation((float) (ticks * 12.0 + i * 90.0), 0.0f);
+                        world.spawnParticle(Particle.END_ROD, target, 2, 0.025, 0.025, 0.025, 0.002);
+                        world.spawnParticle(Particle.ELECTRIC_SPARK, target, 1, 0.02, 0.02, 0.02, 0.001);
+                    }
+
+                    if (ticks == 72) {
+                        for (ItemDisplay crystal : crystals) if (crystal.isValid()) crystal.remove();
+                        if (headEntity.isValid()) headEntity.remove();
+                        // Ledakan End Crystal + dentuman thunder, seluruhnya visual/audio tanpa block damage.
+                        world.playSound(chest, Sound.ENTITY_GENERIC_EXPLODE, 2.0f, 0.72f);
+                        world.playSound(chest, Sound.ENTITY_LIGHTNING_BOLT_THUNDER, 1.5f, 0.85f);
+                        world.spawnParticle(Particle.EXPLOSION_EMITTER, chest, 1, 0, 0, 0, 0);
+                        world.spawnParticle(Particle.FLAME, chest, 48, 0.42, 0.62, 0.42, 0.075);
+                        world.spawnParticle(Particle.SOUL_FIRE_FLAME, chest, 28, 0.36, 0.52, 0.36, 0.045);
+                        world.spawnParticle(Particle.ELECTRIC_SPARK, chest, 55, 0.48, 0.62, 0.48, 0.12);
+                        world.spawnParticle(Particle.DUST, chest, 35, 0.42, 0.50, 0.42, 0.02,
+                                new Particle.DustOptions(Color.fromRGB(210, 20, 35), 1.35f));
+                    }
+
+                    if (ticks >= 80) {
+                        animation[0].cancel();
+                        if (p.isOnline()) {
+                            // Buff final baru diterapkan setelah crystal menyatu dan ledakan selesai.
+                            stages.put(p.getUniqueId(), 3);
+                            applyStage(p, 3);
+                            saveData();
+                            showGlitchSubtitle(p);
+                            p.sendActionBar(color(msg("activated-actionbar", "&cBreak your limit &f| &aEfek aktif")));
+                            sendGuide(p);
+                        }
+                        return;
+                    }
+                    ticks++;
+                }
+            }, 0L, 1L);
+            return;
+        }
+
+        // Stage 1 dan 2 mempertahankan animasi melayang yang sudah teruji.
         final BukkitTask[] animation = new BukkitTask[1];
         animation[0] = Bukkit.getScheduler().runTaskTimer(this, new Runnable() {
             private int ticks = 0;
-
             @Override public void run() {
-                if (!entity.isValid() || ticks >= 30) {
-                    if (entity.isValid()) {
-                        Location burst = entity.getLocation();
-
-                        // Ledakan: respawn anchor + achievement toast + partikel ungu.
+                if (!headEntity.isValid() || ticks >= 30) {
+                    if (headEntity.isValid()) {
+                        Location burst = headEntity.getLocation();
                         world.playSound(burst, Sound.BLOCK_RESPAWN_ANCHOR_DEPLETE, 1.4f, 0.9f);
                         world.playSound(burst, Sound.UI_TOAST_CHALLENGE_COMPLETE, 1.0f, 1.0f);
                         world.spawnParticle(Particle.FIREWORK, burst, 55, 0.45, 0.5, 0.45, 0.08);
                         world.spawnParticle(Particle.DUST, burst, 45, 0.5, 0.5, 0.5, 0.02,
                                 new Particle.DustOptions(Color.PURPLE, 1.7f));
                         world.spawnParticle(Particle.PORTAL, burst, 35, 0.4, 0.5, 0.4, 0.25);
-                        entity.remove();
+                        headEntity.remove();
                     }
-
                     animation[0].cancel();
-
-                    // Potion dan progres aktif setelah animasi/ledakan selesai.
                     if (p.isOnline()) {
                         stages.put(p.getUniqueId(), stage);
                         applyStage(p, stage);
                         saveData();
-                        p.sendActionBar(color(msg("activated-actionbar", "&bPlayer/Killer &f| &aEfek aktif")));
+                        p.sendActionBar(color(msg("activated-actionbar", "&cBreak your limit &f| &aEfek aktif")));
                         sendGuide(p);
                     }
                     return;
                 }
-
-                Location rising = entity.getLocation().add(0, 0.065, 0);
-                entity.teleport(rising);
-                // Kilau glowstone-like sepanjang kepala melayang.
+                Location rising = headEntity.getLocation().add(0, 0.065, 0);
+                headEntity.teleport(rising);
                 world.spawnParticle(Particle.GLOW, rising, 8, 0.22, 0.18, 0.22, 0.01);
                 world.spawnParticle(Particle.END_ROD, rising, 3, 0.16, 0.16, 0.16, 0.005);
                 ticks++;
@@ -805,12 +970,12 @@ public final class KASTARAPlayerKiller extends JavaPlugin implements Listener {
         int stage = stages.getOrDefault(p.getUniqueId(), 0);
         String next = stage == 0 ? "Sharp as a Diamond"
                 : stage == 1 ? "Hard as a Diamond"
-                : stage == 2 ? "Player/Killer" : "Tahap final sudah aktif";
-        p.sendMessage(color(msg("guide-header", "&6&lPLAYER/KILLER")));
+                : stage == 2 ? "Absolute Unit" : "Tahap final sudah aktif";
+        p.sendMessage(color(msg("guide-header", "&c&lBreak your limit")));
         p.sendMessage(color(msg("guide-next", "&eTahap berikutnya: &f{stage}").replace("{stage}", next)));
         p.sendMessage(color(msg("guide-use", "&7Craft item, letakkan kepala di tanah dengan klik kanan, lalu lihat kepala dan tekan &fShift + Klik Kanan&7.")));
         p.sendMessage(color(msg("guide-warning", "&cPeringatan: efek dan progres hilang jika kamu mati atau kehilangan life.")));
-        p.sendActionBar(color(msg("guide-actionbar", "&eTahap berikutnya: &f{stage}").replace("{stage}", next)));
+        p.sendActionBar(color(msg("guide-actionbar", "&eBreak your limit &7• Tahap berikutnya: &f{stage}").replace("{stage}", next)));
     }
 
     private List<String> lines(String path) {
