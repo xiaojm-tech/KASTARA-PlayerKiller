@@ -1042,11 +1042,11 @@ public final class KASTARAPlayerKiller extends JavaPlugin implements Listener {
             for (int stage = 1; stage <= 3; stage++) {
                 String path = "gui.recipe.main.stage-" + stage + ".slot";
                 int fallback = new int[]{10,13,16}[stage-1];
-                if (e.getRawSlot() == getConfig().getInt(path, fallback)) { openRecipeDetail(p, stage); return; }
+                if (e.getRawSlot() == guiSlot(path, fallback, e.getInventory().getSize())) { openRecipeDetail(p, stage); return; }
             }
         } else {
-            if (e.getRawSlot() == getConfig().getInt("gui.recipe.detail.back.slot", 40)) openRecipeMenu(p);
-            else if (e.getRawSlot() == getConfig().getInt("gui.recipe.detail.close.slot", 44)) p.closeInventory();
+            if (e.getRawSlot() == guiSlot("gui.recipe.detail.back.slot", 40, e.getInventory().getSize())) openRecipeMenu(p);
+            else if (e.getRawSlot() == guiSlot("gui.recipe.detail.close.slot", 44, e.getInventory().getSize())) p.closeInventory();
         }
     }
 
