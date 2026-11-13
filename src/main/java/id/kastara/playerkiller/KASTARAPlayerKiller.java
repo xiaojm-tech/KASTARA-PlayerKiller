@@ -722,19 +722,10 @@ public final class KASTARAPlayerKiller extends JavaPlugin implements Listener {
         if (stage == 3) {
             List<ItemDisplay> stars = new ArrayList<>();
             float starScale = (float)getConfig().getDouble("effects.stage-3-nether-star.scale",0.65);
-            for(int i=0;i<4;i++) {
-                ItemDisplay star=world.spawn(p.getLocation(),ItemDisplay.class,entity->{
-                    entity.setItemStack(new ItemStack(Material.NETHER_STAR));
-                    entity.setItemDisplayTransform(ItemDisplay.ItemDisplayTransform.FIXED);
-                    entity.setPersistent(false); entity.setInvulnerable(true); entity.setSilent(true);
-                    entity.setTransformation(new Transformation(new Vector3f(0f,0f,0f),new Quaternionf(),
-                            new Vector3f(starScale,starScale,starScale),new Quaternionf()));
-                });
-                stars.add(star);
-            }
             final BukkitTask[] animation=new BukkitTask[1];
             animation[0]=Bukkit.getScheduler().runTaskTimer(this,new Runnable(){
                 private int ticks=0;
+                private static final int STAR_START_TICK=15;
                 @Override public void run(){
                     if(!p.isOnline()||!p.isValid()){
                         if(headEntity.isValid())headEntity.remove();
@@ -747,25 +738,40 @@ public final class KASTARAPlayerKiller extends JavaPlugin implements Listener {
                         world.spawnParticle(Particle.GLOW,rising,7,0.20,0.16,0.20,0.01);
                         world.spawnParticle(Particle.END_ROD,rising,3,0.13,0.13,0.13,0.005);
                     }
+                    // Kepala memulai animasi lebih dulu. Nether Star baru muncul saat animasi kepala setengah jalan.
+                    if(ticks==STAR_START_TICK){
+                        for(int i=0;i<4;i++) {
+                            ItemDisplay star=world.spawn(base,ItemDisplay.class,entity->{
+                                entity.setItemStack(new ItemStack(Material.NETHER_STAR));
+                                entity.setItemDisplayTransform(ItemDisplay.ItemDisplayTransform.FIXED);
+                                entity.setPersistent(false); entity.setInvulnerable(true); entity.setSilent(true);
+                                entity.setTransformation(new Transformation(new Vector3f(0f,0f,0f),new Quaternionf(),
+                                        new Vector3f(starScale,starScale,starScale),new Quaternionf()));
+                            });
+                            stars.add(star);
+                        }
+                    }
                     Location chest=base.clone().add(0,1.18,0);
+                    int starTicks=ticks-STAR_START_TICK;
                     for(int i=0;i<stars.size();i++){
                         ItemDisplay star=stars.get(i);if(!star.isValid())continue;
-                        double angle=ticks*0.16+Math.PI*2.0*i/4.0;
-                        Location orbit=base.clone().add(Math.cos(angle)*1.05,0.95+Math.sin(ticks*0.12+i)*0.35,Math.sin(angle)*1.05);
+                        double angle=starTicks*0.16+Math.PI*2.0*i/4.0;
+                        Location orbit=base.clone().add(Math.cos(angle)*1.05,0.95+Math.sin(starTicks*0.12+i)*0.35,Math.sin(angle)*1.05);
                         Location target=orbit;
-                        if(ticks>=48){
-                            double progress=Math.min(1.0,(ticks-48)/23.0);
-                            double sa=48*0.16+Math.PI*2.0*i/4.0;
-                            Location from=base.clone().add(Math.cos(sa)*1.05,0.95+Math.sin(48*0.12+i)*0.35,Math.sin(sa)*1.05);
+                        if(starTicks>=33){
+                            double progress=Math.min(1.0,(starTicks-33)/23.0);
+                            double sa=33*0.16+Math.PI*2.0*i/4.0;
+                            Location from=base.clone().add(Math.cos(sa)*1.05,0.95+Math.sin(33*0.12+i)*0.35,Math.sin(sa)*1.05);
                             target=from.clone().add((chest.getX()-from.getX())*progress,(chest.getY()-from.getY())*progress,(chest.getZ()-from.getZ())*progress);
                         }
-                        star.teleport(target);star.setRotation((float)(ticks*12.0+i*90.0),(float)(Math.sin(ticks*0.1)*18.0));
+                        star.teleport(target);star.setRotation((float)(starTicks*12.0+i*90.0),(float)(Math.sin(starTicks*0.1)*18.0));
                         world.spawnParticle(Particle.END_ROD,target,2,0.025,0.025,0.025,0.002);
                         world.spawnParticle(Particle.ELECTRIC_SPARK,target,1,0.02,0.02,0.02,0.001);
                     }
                     if(ticks==72){
                         for(ItemDisplay star:stars)if(star.isValid())star.remove();
                         if(headEntity.isValid())headEntity.remove();
+                        // Suara pembukaan End Portal menggantikan suara petir.
                         world.playSound(chest,Sound.BLOCK_END_PORTAL_SPAWN,1.8f,0.85f);
                         world.spawnParticle(Particle.EXPLOSION_EMITTER,chest,1,0,0,0,0);
                         world.spawnParticle(Particle.FLASH,chest,1,0,0,0,0,Color.WHITE);
