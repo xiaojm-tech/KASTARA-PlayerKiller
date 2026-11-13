@@ -43,13 +43,13 @@ player-head-lore:
   - "&fShift + Klik Kanan untuk menggunakan."
 stage-1-name: "&bSharp as a Diamond"
 stage-1-lore:
-  - "&7Bloody Diamond • Enchanted"
+  - "&cBloody Diamond • Enchanted"
   - "&7Membuka efek permanen Strength I."
   - "&7Letakkan kepala di tanah, lihat, lalu &fShift + Klik Kanan&7."
   - "&cEfek dan progres hilang jika mati / kehilangan life."
 stage-2-name: "&bHard as a Diamond"
 stage-2-lore:
-  - "&7Diamond Sprinkle • Enchanted"
+  - "&b&lDiamond Toughness • Enchanted"
   - "&7Mengaktifkan Strength I + Resistance I."
   - "&7Wajib aktifkan Sharp as a Diamond terlebih dahulu."
   - "&cEfek dan progres hilang jika mati / kehilangan life."
