@@ -151,8 +151,8 @@ public final class KASTARAPlayerKiller extends JavaPlugin implements Listener {
         p.removePotionEffect(PotionEffectType.STRENGTH);
         p.removePotionEffect(PotionEffectType.RESISTANCE);
         if (notify) {
-            p.sendMessage(color(msg("reset-message", "&cNyawa berkurang! Semua efek dan progres Player/Killer telah di-reset.")));
-            p.sendActionBar(color(msg("reset-actionbar", "&cProgres Player/Killer di-reset")));
+            p.sendMessage(color(msg("reset-message", "&cNyawa berkurang! Semua efek dan progres Break your limit telah di-reset.")));
+            p.sendActionBar(color(msg("reset-actionbar", "&cProgres Break your limit di-reset")));
         }
     }
 
@@ -171,7 +171,7 @@ public final class KASTARAPlayerKiller extends JavaPlugin implements Listener {
 
         // Pemain yang sudah mencapai Player/Killer tidak lagi menghasilkan Player Head.
         if (stages.getOrDefault(killer.getUniqueId(), 0) >= 3) {
-            killer.sendMessage(color(msg("final-stage-no-head", "&dPlayer/Killer &7sudah mencapai puncak. Kill berikutnya tidak menjatuhkan Player Head.")));
+            killer.sendMessage(color(msg("final-stage-no-head", "&cAbsolute Unit &7sudah mencapai puncak. Kill berikutnya tidak menjatuhkan Player Head.")));
             return;
         }
 
@@ -421,7 +421,7 @@ public final class KASTARAPlayerKiller extends JavaPlugin implements Listener {
         removeStageVisuals(block.getLocation());
         saveData();
         p.sendMessage(color(msg("activated-" + stage, "&aTahap " + stage + " berhasil diaktifkan!")));
-        p.sendActionBar(color(msg("activated-actionbar", "&bPlayer/Killer &f| &aEfek aktif")));
+        p.sendActionBar(color(msg("activated-actionbar", "&cBreak your limit &f| &aEfek aktif")));
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
