@@ -28,7 +28,7 @@ effects:
 
 final-title:
   title: "&d&lare you a player or a killer??"
-  subtitle: "&7"
+  subtitle: "&c&lLimit Breaker"
 
 player-head-lore:
   - "&7Drop dari membunuh player lain."
@@ -46,16 +46,16 @@ stage-2-lore:
   - "&7Mengaktifkan Strength I + Resistance I."
   - "&7Wajib aktifkan Sharp as a Diamond terlebih dahulu."
   - "&cEfek dan progres hilang jika mati / kehilangan life."
-stage-3-name: "&cPlayer/Killer?"
+stage-3-name: "&cAbsolute Unit"
 stage-3-lore:
-  - "&4VERY BLOODY • ENCHANTED"
-  - "&7Efek final: Strength II + Resistance II."
+  - "&4ABSOLUTE UNIT • ENCHANTED"
+  - "&7Limit Breaker: Strength II + Resistance II."
   - "&7Wajib aktifkan dua tahap sebelumnya."
   - "&cEfek dan progres hilang jika mati / kehilangan life."
 
 messages:
-  reset-message: "&cNyawa berkurang! Semua efek dan progres Player/Killer telah di-reset."
-  reset-actionbar: "&cProgres Player/Killer di-reset"
+  reset-message: "&cNyawa berkurang! Semua efek dan progres Break your limit telah di-reset."
+  reset-actionbar: "&cProgres Break your limit di-reset"
   head-drop-message: "&aKamu mendapatkan &fPlayer Head&a! Ikuti panduan untuk mulai crafting."
   head-drop-actionbar: "&ePlayer Head didapatkan"
   need-stage-1: "&cKamu harus menyelesaikan dan mengaktifkan &bSharp as a Diamond &cterlebih dahulu."
@@ -63,11 +63,11 @@ messages:
   already-stage: "&eTahap ini sudah aktif atau progresmu sudah lebih tinggi."
   activated-1: "&aSharp as a Diamond aktif! Kamu mendapat Strength I permanen."
   activated-2: "&aHard as a Diamond aktif! Strength I + Resistance I aktif."
-  activated-3: "&cPlayer/Killer aktif! Strength II + Resistance II aktif."
-  activated-actionbar: "&bPlayer/Killer &f| &aEfek berhasil diaktifkan"
+  activated-3: "&cAbsolute Unit aktif! Strength II + Resistance II aktif."
+  activated-actionbar: "&cBreak your limit &f| &aEfek berhasil diaktifkan"
   head-equip-blocked: "&cPlayer Head tidak bisa dipakai sebagai helmet."
-  guide-header: "&6&lPLAYER/KILLER"
+  guide-header: "&c&lBreak your limit"
   guide-next: "&eTahap berikutnya: &f{stage}"
   guide-use: "&7Craft item, letakkan kepala di tanah dengan klik kanan, lalu lihat kepala dan tekan &fShift + Klik Kanan&7."
   guide-warning: "&cPeringatan: efek dan progres hilang jika kamu mati atau kehilangan life."
-  guide-actionbar: "&eTahap berikutnya: &f{stage}"
+  guide-actionbar: "&eBreak your limit &7• Tahap berikutnya: &f{stage}"
