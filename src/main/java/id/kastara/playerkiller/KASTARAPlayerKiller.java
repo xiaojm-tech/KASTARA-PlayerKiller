@@ -721,7 +721,7 @@ public final class KASTARAPlayerKiller extends JavaPlugin implements Listener {
 
         if (stage == 3) {
             List<ItemDisplay> stars = new ArrayList<>();
-            float starScale = (float)getConfig().getDouble("effects.stage-3-nether-star.scale",0.50);
+            float starScale = (float)getConfig().getDouble("effects.stage-3-nether-star.scale",0.65);
             for(int i=0;i<4;i++) {
                 ItemDisplay star=world.spawn(p.getLocation(),ItemDisplay.class,entity->{
                     entity.setItemStack(new ItemStack(Material.NETHER_STAR));
@@ -766,10 +766,9 @@ public final class KASTARAPlayerKiller extends JavaPlugin implements Listener {
                     if(ticks==72){
                         for(ItemDisplay star:stars)if(star.isValid())star.remove();
                         if(headEntity.isValid())headEntity.remove();
-                        world.playSound(chest,Sound.ENTITY_GENERIC_EXPLODE,2.0f,0.72f);
-                        world.playSound(chest,Sound.ENTITY_LIGHTNING_BOLT_THUNDER,1.5f,0.85f);
+                        world.playSound(chest,Sound.ENTITY_LIGHTNING_BOLT_THUNDER,1.8f,0.85f);
                         world.spawnParticle(Particle.EXPLOSION_EMITTER,chest,1,0,0,0,0);
-                        world.spawnParticle(Particle.FLASH,chest,1,0,0,0,0);
+                        world.spawnParticle(Particle.FLASH,chest,1,0,0,0,0,Color.WHITE);
                     }
                     if(ticks>=80){
                         world.playSound(chest,Sound.BLOCK_RESPAWN_ANCHOR_DEPLETE,1.4f,0.8f);
