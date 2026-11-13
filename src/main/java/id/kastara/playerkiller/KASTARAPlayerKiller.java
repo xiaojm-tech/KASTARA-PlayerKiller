@@ -751,6 +751,17 @@ public final class KASTARAPlayerKiller extends JavaPlugin implements Listener {
                             stars.add(star);
                         }
                     }
+                    if(ticks==30&&headEntity.isValid()){
+                        Location burst=headEntity.getLocation();
+                        // Kembalikan cue achievement tepat pada momen kepala Stage 3 pecah.
+                        world.playSound(burst,Sound.BLOCK_RESPAWN_ANCHOR_DEPLETE,1.4f,0.9f);
+                        world.playSound(burst,Sound.UI_TOAST_CHALLENGE_COMPLETE,1.0f,1.0f);
+                        world.spawnParticle(Particle.FIREWORK,burst,55,0.45,0.5,0.45,0.08);
+                        world.spawnParticle(Particle.DUST,burst,45,0.5,0.5,0.5,0.02,
+                                new Particle.DustOptions(Color.PURPLE,1.7f));
+                        world.spawnParticle(Particle.PORTAL,burst,35,0.4,0.5,0.4,0.25);
+                        headEntity.remove();
+                    }
                     Location chest=base.clone().add(0,1.18,0);
                     int starTicks=ticks-STAR_START_TICK;
                     for(int i=0;i<stars.size();i++){
@@ -777,8 +788,7 @@ public final class KASTARAPlayerKiller extends JavaPlugin implements Listener {
                         world.spawnParticle(Particle.FLASH,chest,1,0,0,0,0,Color.WHITE);
                     }
                     if(ticks>=80){
-                        world.playSound(chest,Sound.BLOCK_RESPAWN_ANCHOR_DEPLETE,1.4f,0.8f);
-                        world.playSound(chest,Sound.UI_TOAST_CHALLENGE_COMPLETE,1.2f,1.0f);
+                        // Cue achievement sudah diputar saat kepala pecah pada tick 30.
                         world.spawnParticle(Particle.FIREWORK,chest,35,0.45,0.6,0.45,0.08);
                         world.spawnParticle(Particle.PORTAL,chest,45,0.55,0.7,0.55,0.35);
                         stages.put(p.getUniqueId(),3);applyStage(p,3);saveData();showGlitchSubtitle(p);
