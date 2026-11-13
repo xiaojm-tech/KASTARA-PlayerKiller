@@ -31,7 +31,7 @@ effects:
     radius: 0.40         # orbit rapat mengelilingi kepala
     rotation-speed: 0.00135
   stage-3-nether-star:
-    scale: 0.50
+    scale: 0.65
 
 final-title:
   title: "&d&lare you a player or a killer??"
