@@ -627,63 +627,39 @@ public final class KASTARAPlayerKiller extends JavaPlugin implements Listener {
         }
     }
 
-    // Empat shield membentuk halo yang lebih besar dan lebih rendah di sekitar item Stage 2 di lantai.
+    // Four larger shields orbit lower around the placed Stage 2 head.
     private void updateStage2ShieldHalos() {
-        Set<String> activeLocations = new HashSet<>();
-        if (getConfig().isConfigurationSection("placed")) {
-            for (String key : getConfig().getConfigurationSection("placed").getKeys(false)) {
-                if (getConfig().getInt("placed." + key, 0) != 2) continue;
-                String[] parts = key.split(",");
-                if (parts.length != 4) continue;
-                World world = Bukkit.getWorld(parts[0]);
-                if (world == null) continue;
-                try {
-                    Location blockLoc = new Location(world, Integer.parseInt(parts[1]),
-                            Integer.parseInt(parts[2]), Integer.parseInt(parts[3]));
-                    Material type = blockLoc.getBlock().getType();
-                    if (type != Material.PLAYER_HEAD && type != Material.PLAYER_WALL_HEAD) continue;
-                    activeLocations.add(key);
-                    List<ItemDisplay> displays = stage2ShieldHalos.get(key);
-                    if (displays == null || displays.size() != 4 || displays.stream().anyMatch(d -> !d.isValid())) {
-                        removeStage2ShieldHalo(key);
-                        displays = new ArrayList<>();
-                        float scale = (float) getConfig().getDouble("effects.stage-2-shield.scale", 0.45);
-                        for (int i = 0; i < 4; i++) {
-                            ItemDisplay shield = world.spawn(blockLoc.clone().add(0.5, 0.75, 0.5),
-                                    ItemDisplay.class, entity -> {
-                                entity.setItemStack(new ItemStack(Material.SHIELD));
-                                entity.setItemDisplayTransform(ItemDisplay.ItemDisplayTransform.FIXED);
-                                entity.setPersistent(false);
-                                entity.setInvulnerable(true);
-                                entity.setSilent(true);
-                                entity.setTransformation(new Transformation(
-                                        new Vector3f(0f, 0f, 0f), new Quaternionf(),
-                                        new Vector3f(scale, scale, scale), new Quaternionf()));
-                            });
-                            displays.add(shield);
-                        }
-                        stage2ShieldHalos.put(key, displays);
-                    }
-                    Location center = blockLoc.clone().add(0.5,
-                            getConfig().getDouble("effects.stage-2-shield.height", 0.62), 0.5);
-                    double radius = getConfig().getDouble("effects.stage-2-shield.radius", 0.62);
-                    double phase = System.currentTimeMillis() * getConfig().getDouble("effects.stage-2-shield.rotation-speed", 0.00135);
-                    for (int i = 0; i < displays.size(); i++) {
-                        double angle = phase + (Math.PI * 2.0 * i / 4.0);
-                        Location orbit = center.clone().add(Math.cos(angle) * radius,
-                                Math.sin(angle * 2.0) * 0.055, Math.sin(angle) * radius);
-                        ItemDisplay shield = displays.get(i);
-                        shield.teleport(orbit);
-                        shield.setRotation((float) Math.toDegrees(-angle) + 90.0f, 0.0f);
-                    }
-                } catch (NumberFormatException ignored) {
-                    getLogger().warning("Lokasi Stage 2 tidak valid: " + key);
+        Set<String> activeLocations=new HashSet<>();
+        if(getConfig().isConfigurationSection("placed")) for(String key:getConfig().getConfigurationSection("placed").getKeys(false)){
+            if(getConfig().getInt("placed."+key,0)!=2)continue;
+            String[] parts=key.split(",");if(parts.length!=4)continue;
+            World world=Bukkit.getWorld(parts[0]);if(world==null)continue;
+            try{
+                Location blockLoc=new Location(world,Integer.parseInt(parts[1]),Integer.parseInt(parts[2]),Integer.parseInt(parts[3]));
+                Material type=blockLoc.getBlock().getType();if(type!=Material.PLAYER_HEAD&&type!=Material.PLAYER_WALL_HEAD)continue;
+                activeLocations.add(key);List<ItemDisplay> displays=stage2ShieldHalos.get(key);
+                if(displays==null||displays.size()!=4||displays.stream().anyMatch(d->!d.isValid())){
+                    removeStage2ShieldHalo(key);displays=new ArrayList<>();
+                    float scale=(float)getConfig().getDouble("effects.stage-2-shield.scale",0.45);
+                    for(int i=0;i<4;i++){
+                        ItemDisplay shield=world.spawn(blockLoc.clone().add(0.5,0.75,0.5),ItemDisplay.class,entity->{
+                            entity.setItemStack(new ItemStack(Material.SHIELD));entity.setItemDisplayTransform(ItemDisplay.ItemDisplayTransform.FIXED);
+                            entity.setPersistent(false);entity.setInvulnerable(true);entity.setSilent(true);
+                            entity.setTransformation(new Transformation(new Vector3f(0f,0f,0f),new Quaternionf(),new Vector3f(scale,scale,scale),new Quaternionf()));
+                        });displays.add(shield);
+                    }stage2ShieldHalos.put(key,displays);
                 }
-            }
+                Location center=blockLoc.clone().add(0.5,getConfig().getDouble("effects.stage-2-shield.height",0.62),0.5);
+                double radius=getConfig().getDouble("effects.stage-2-shield.radius",0.62);
+                double phase=System.currentTimeMillis()*getConfig().getDouble("effects.stage-2-shield.rotation-speed",0.00135);
+                for(int i=0;i<displays.size();i++){
+                    double angle=phase+Math.PI*2.0*i/4.0;
+                    Location orbit=center.clone().add(Math.cos(angle)*radius,Math.sin(angle*2.0)*0.055,Math.sin(angle)*radius);
+                    ItemDisplay shield=displays.get(i);shield.teleport(orbit);shield.setRotation((float)Math.toDegrees(-angle)+90.0f,0.0f);
+                }
+            }catch(NumberFormatException ignored){getLogger().warning("Lokasi Stage 2 tidak valid: "+key);}
         }
-        for (String key : new HashSet<>(stage2ShieldHalos.keySet())) {
-            if (!activeLocations.contains(key)) removeStage2ShieldHalo(key);
-        }
+        for(String key:new HashSet<>(stage2ShieldHalos.keySet()))if(!activeLocations.contains(key))removeStage2ShieldHalo(key);
     }
 
     private void removeStage2ShieldHalo(String id) {
@@ -744,143 +720,69 @@ public final class KASTARAPlayerKiller extends JavaPlugin implements Listener {
         headEntity.setVelocity(new org.bukkit.util.Vector(0, 0, 0));
 
         if (stage == 3) {
-            // Empat Nether Star ItemDisplay mengorbit badan, lalu konvergen ke dada.
             List<ItemDisplay> stars = new ArrayList<>();
-            float starScale = (float) getConfig().getDouble("effects.stage-3-nether-star.scale", 0.50);
-            for (int i = 0; i < 4; i++) {
-                ItemDisplay star = world.spawn(p.getLocation(), ItemDisplay.class, entity -> {
+            float starScale = (float)getConfig().getDouble("effects.stage-3-nether-star.scale",0.50);
+            for(int i=0;i<4;i++) {
+                ItemDisplay star=world.spawn(p.getLocation(),ItemDisplay.class,entity->{
                     entity.setItemStack(new ItemStack(Material.NETHER_STAR));
                     entity.setItemDisplayTransform(ItemDisplay.ItemDisplayTransform.FIXED);
-                    entity.setPersistent(false);
-                    entity.setInvulnerable(true);
-                    entity.setSilent(true);
-                    entity.setTransformation(new Transformation(
-                            new Vector3f(0f, 0f, 0f), new Quaternionf(),
-                            new Vector3f(starScale, starScale, starScale), new Quaternionf()));
+                    entity.setPersistent(false); entity.setInvulnerable(true); entity.setSilent(true);
+                    entity.setTransformation(new Transformation(new Vector3f(0f,0f,0f),new Quaternionf(),
+                            new Vector3f(starScale,starScale,starScale),new Quaternionf()));
                 });
                 stars.add(star);
             }
-
-            final BukkitTask[] animation = new BukkitTask[1];
-            animation[0] = Bukkit.getScheduler().runTaskTimer(this, new Runnable() {
-                private int ticks = 0;
-
-                @Override public void run() {
-                    if (!p.isOnline() || !p.isValid()) {
-                        if (headEntity.isValid()) headEntity.remove();
-                        for (ItemDisplay star : stars) if (star.isValid()) star.remove();
-                        animation[0].cancel();
-                        return;
+            final BukkitTask[] animation=new BukkitTask[1];
+            animation[0]=Bukkit.getScheduler().runTaskTimer(this,new Runnable(){
+                private int ticks=0;
+                @Override public void run(){
+                    if(!p.isOnline()||!p.isValid()){
+                        if(headEntity.isValid())headEntity.remove();
+                        for(ItemDisplay star:stars)if(star.isValid())star.remove();
+                        animation[0].cancel();return;
                     }
-
-                    Location playerBase = p.getLocation();
-                    if (ticks < 30 && headEntity.isValid()) {
-                        Location risingHead = headEntity.getLocation().add(0, 0.065, 0);
-                        headEntity.teleport(risingHead);
-                        world.spawnParticle(Particle.GLOW, risingHead, 7, 0.20, 0.16, 0.20, 0.01);
-                        world.spawnParticle(Particle.END_ROD, risingHead, 3, 0.13, 0.13, 0.13, 0.005);
+                    Location base=p.getLocation();
+                    if(ticks<30&&headEntity.isValid()){
+                        Location rising=headEntity.getLocation().add(0,0.065,0);headEntity.teleport(rising);
+                        world.spawnParticle(Particle.GLOW,rising,7,0.20,0.16,0.20,0.01);
+                        world.spawnParticle(Particle.END_ROD,rising,3,0.13,0.13,0.13,0.005);
                     }
-
-                    Location chest = playerBase.clone().add(0, 1.18, 0);
-                    double orbitPhase = ticks * 0.16;
-                    for (int i = 0; i < stars.size(); i++) {
-                        ItemDisplay star = stars.get(i);
-                        if (!star.isValid()) continue;
-                        double angle = orbitPhase + (Math.PI * 2.0 * i / 4.0);
-                        Location orbit = playerBase.clone().add(
-                                Math.cos(angle) * 1.05,
-                                0.95 + Math.sin(ticks * 0.12 + i) * 0.35,
-                                Math.sin(angle) * 1.05);
-                        Location target;
-                        if (ticks < 48) {
-                            target = orbit;
-                        } else {
-                            double progress = Math.min(1.0, (ticks - 48) / 23.0);
-                            double startAngle = (48 * 0.16) + (Math.PI * 2.0 * i / 4.0);
-                            Location startOrbit = playerBase.clone().add(
-                                    Math.cos(startAngle) * 1.05,
-                                    0.95 + Math.sin(48 * 0.12 + i) * 0.35,
-                                    Math.sin(startAngle) * 1.05);
-                            target = startOrbit.clone().add(
-                                    (chest.getX() - startOrbit.getX()) * progress,
-                                    (chest.getY() - startOrbit.getY()) * progress,
-                                    (chest.getZ() - startOrbit.getZ()) * progress);
+                    Location chest=base.clone().add(0,1.18,0);
+                    for(int i=0;i<stars.size();i++){
+                        ItemDisplay star=stars.get(i);if(!star.isValid())continue;
+                        double angle=ticks*0.16+Math.PI*2.0*i/4.0;
+                        Location orbit=base.clone().add(Math.cos(angle)*1.05,0.95+Math.sin(ticks*0.12+i)*0.35,Math.sin(angle)*1.05);
+                        Location target=orbit;
+                        if(ticks>=48){
+                            double progress=Math.min(1.0,(ticks-48)/23.0);
+                            double sa=48*0.16+Math.PI*2.0*i/4.0;
+                            Location from=base.clone().add(Math.cos(sa)*1.05,0.95+Math.sin(48*0.12+i)*0.35,Math.sin(sa)*1.05);
+                            target=from.clone().add((chest.getX()-from.getX())*progress,(chest.getY()-from.getY())*progress,(chest.getZ()-from.getZ())*progress);
                         }
-                        star.teleport(target);
-                        star.setRotation((float) (ticks * 12.0 + i * 90.0), (float) (Math.sin(ticks * 0.1) * 18.0));
-                        world.spawnParticle(Particle.END_ROD, target, 2, 0.025, 0.025, 0.025, 0.002);
-                        world.spawnParticle(Particle.ELECTRIC_SPARK, target, 1, 0.02, 0.02, 0.02, 0.001);
+                        star.teleport(target);star.setRotation((float)(ticks*12.0+i*90.0),(float)(Math.sin(ticks*0.1)*18.0));
+                        world.spawnParticle(Particle.END_ROD,target,2,0.025,0.025,0.025,0.002);
+                        world.spawnParticle(Particle.ELECTRIC_SPARK,target,1,0.02,0.02,0.02,0.001);
                     }
-
-                    if (ticks == 72) {
-                        for (ItemDisplay star : stars) if (star.isValid()) star.remove();
-                        if (headEntity.isValid()) headEntity.remove();
-                        // Burst visual/audio saja; tidak memanggil ledakan entity sehingga block aman.
-                        world.playSound(chest, Sound.ENTITY_GENERIC_EXPLODE, 2.0f, 0.72f);
-                        world.playSound(chest, Sound.ENTITY_LIGHTNING_BOLT_THUNDER, 1.5f, 0.85f);
-                        world.spawnParticle(Particle.EXPLOSION_EMITTER, chest, 1, 0, 0, 0, 0);
-                        world.spawnParticle(Particle.FLASH, chest, 1, 0, 0, 0, 0);
+                    if(ticks==72){
+                        for(ItemDisplay star:stars)if(star.isValid())star.remove();
+                        if(headEntity.isValid())headEntity.remove();
+                        world.playSound(chest,Sound.ENTITY_GENERIC_EXPLODE,2.0f,0.72f);
+                        world.playSound(chest,Sound.ENTITY_LIGHTNING_BOLT_THUNDER,1.5f,0.85f);
+                        world.spawnParticle(Particle.EXPLOSION_EMITTER,chest,1,0,0,0,0);
+                        world.spawnParticle(Particle.FLASH,chest,1,0,0,0,0);
                     }
-                    if (ticks >= 80) {
-                        applyStage(p, 3);
-                        world.playSound(chest, Sound.BLOCK_RESPAWN_ANCHOR_DEPLETE, 1.4f, 0.8f);
-                        world.playSound(chest, Sound.UI_TOAST_CHALLENGE_COMPLETE, 1.2f, 1.0f);
-                        world.spawnParticle(Particle.FIREWORK, chest, 35, 0.45, 0.6, 0.45, 0.08);
-                        world.spawnParticle(Particle.PORTAL, chest, 45, 0.55, 0.7, 0.55, 0.35);
-                        animation[0].cancel();
-                        return;
+                    if(ticks>=80){
+                        world.playSound(chest,Sound.BLOCK_RESPAWN_ANCHOR_DEPLETE,1.4f,0.8f);
+                        world.playSound(chest,Sound.UI_TOAST_CHALLENGE_COMPLETE,1.2f,1.0f);
+                        world.spawnParticle(Particle.FIREWORK,chest,35,0.45,0.6,0.45,0.08);
+                        world.spawnParticle(Particle.PORTAL,chest,45,0.55,0.7,0.55,0.35);
+                        stages.put(p.getUniqueId(),3);applyStage(p,3);saveData();showGlitchSubtitle(p);
+                        p.sendActionBar(color(msg("activated-actionbar","&cBreak your limit &f| &aEfek aktif")));
+                        sendGuide(p);animation[0].cancel();return;
                     }
                     ticks++;
                 }
-            }, 0L, 1L);
-        } else {
-                            double progress = Math.min(1.0, (ticks - 48) / 23.0);
-                            double startAngle = (48 * 0.16) + (Math.PI * 2.0 * i / 4.0);
-                            Location startOrbit = playerBase.clone().add(
-                                    Math.cos(startAngle) * 1.05,
-                                    0.95 + Math.sin(48 * 0.12 + i) * 0.35,
-                                    Math.sin(startAngle) * 1.05);
-                            target = startOrbit.clone().add(
-                                    (chest.getX() - startOrbit.getX()) * progress,
-                                    (chest.getY() - startOrbit.getY()) * progress,
-                                    (chest.getZ() - startOrbit.getZ()) * progress);
-                        }
-                        crystal.teleport(target);
-                        crystal.setRotation((float) (ticks * 12.0 + i * 90.0), 0.0f);
-                        world.spawnParticle(Particle.END_ROD, target, 2, 0.025, 0.025, 0.025, 0.002);
-                        world.spawnParticle(Particle.ELECTRIC_SPARK, target, 1, 0.02, 0.02, 0.02, 0.001);
-                    }
-
-                    if (ticks == 72) {
-                        for (EnderCrystal crystal : crystals) if (crystal.isValid()) crystal.remove();
-                        if (headEntity.isValid()) headEntity.remove();
-                        // Ledakan End Crystal + dentuman thunder, seluruhnya visual/audio tanpa block damage.
-                        world.playSound(chest, Sound.ENTITY_GENERIC_EXPLODE, 2.0f, 0.72f);
-                        world.playSound(chest, Sound.ENTITY_LIGHTNING_BOLT_THUNDER, 1.5f, 0.85f);
-                        world.spawnParticle(Particle.EXPLOSION_EMITTER, chest, 1, 0, 0, 0, 0);
-                        world.spawnParticle(Particle.FLAME, chest, 48, 0.42, 0.62, 0.42, 0.075);
-                        world.spawnParticle(Particle.SOUL_FIRE_FLAME, chest, 28, 0.36, 0.52, 0.36, 0.045);
-                        world.spawnParticle(Particle.ELECTRIC_SPARK, chest, 55, 0.48, 0.62, 0.48, 0.12);
-                        world.spawnParticle(Particle.DUST, chest, 35, 0.42, 0.50, 0.42, 0.02,
-                                new Particle.DustOptions(Color.fromRGB(210, 20, 35), 1.35f));
-                    }
-
-                    if (ticks >= 80) {
-                        animation[0].cancel();
-                        if (p.isOnline()) {
-                            // Buff final baru diterapkan setelah crystal menyatu dan ledakan selesai.
-                            stages.put(p.getUniqueId(), 3);
-                            applyStage(p, 3);
-                            saveData();
-                            showGlitchSubtitle(p);
-                            p.sendActionBar(color(msg("activated-actionbar", "&cBreak your limit &f| &aEfek aktif")));
-                            sendGuide(p);
-                        }
-                        return;
-                    }
-                    ticks++;
-                }
-            }, 0L, 1L);
+            },0L,1L);
             return;
         }
 
