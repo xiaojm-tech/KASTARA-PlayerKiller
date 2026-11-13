@@ -1170,12 +1170,36 @@ public final class KASTARAPlayerKiller extends JavaPlugin implements Listener {
             sender.sendMessage(color("&cTidak punya izin."));
             return true;
         }
+        if (command.getName().equalsIgnoreCase("giveplayerhead")
+                || (command.getName().equalsIgnoreCase("playerkiller")
+                && args.length > 0 && args[0].equalsIgnoreCase("givehead"))) {
+            int targetIndex = command.getName().equalsIgnoreCase("giveplayerhead") ? 0 : 1;
+            if (args.length != targetIndex + 1) {
+                sender.sendMessage(color("&eGunakan: /giveplayerhead <player>"));
+                sender.sendMessage(color("&7Alias: /playerkiller givehead <player>"));
+                return true;
+            }
+            Player target = Bukkit.getPlayerExact(args[targetIndex]);
+            if (target == null) {
+                sender.sendMessage(color("&cPlayer tersebut tidak online."));
+                return true;
+            }
+            ItemStack head = makePlayerHead(target);
+            Map<Integer, ItemStack> leftover = target.getInventory().addItem(head);
+            for (ItemStack item : leftover.values())
+                target.getWorld().dropItemNaturally(target.getLocation(), item);
+            sender.sendMessage(color("&aBerhasil memberikan &fPlayer Head &akepada &f" + target.getName() + "&a."));
+            if (!sender.equals(target))
+                target.sendMessage(color("&aKamu menerima &fPlayer Head &adari admin untuk testing."));
+            return true;
+        }
         if (args.length == 1 && args[0].equalsIgnoreCase("reload")) {
             reloadConfig();
             sender.sendMessage(color("&aConfig direload."));
             return true;
         }
         sender.sendMessage(color("&e/playerkiller reload"));
+        sender.sendMessage(color("&e/giveplayerhead <player>"));
         return true;
     }
 }
