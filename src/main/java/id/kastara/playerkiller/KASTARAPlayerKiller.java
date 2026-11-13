@@ -852,45 +852,95 @@ public final class KASTARAPlayerKiller extends JavaPlugin implements Listener {
         }
     }
 
+    private Material guiMaterial(String path, String fallback) {
+        Material material = Material.matchMaterial(getConfig().getString(path, fallback));
+        return material == null ? Material.matchMaterial(fallback) : material;
+    }
+
+    private String guiText(String path, String fallback) {
+        return color(getConfig().getString(path, fallback));
+    }
+
+    private List<String> guiLore(String path, List<String> fallback) {
+        List<String> values = getConfig().getStringList(path);
+        if (values.isEmpty()) values = fallback;
+        List<String> out = new ArrayList<>();
+        for (String line : values) out.add(color(line));
+        return out;
+    }
+
+    private int guiSlot(String path, int fallback, int size) {
+        int slot = getConfig().getInt(path, fallback);
+        return slot >= 0 && slot < size ? slot : fallback;
+    }
+
+    private int guiSize(String path, int fallback) {
+        int size = getConfig().getInt(path, fallback);
+        return size >= 9 && size <= 54 && size % 9 == 0 ? size : fallback;
+    }
+
+    private ItemStack guiItem(String materialPath, String fallbackMaterial, String namePath,
+                              String fallbackName, String lorePath, List<String> fallbackLore) {
+        ItemStack item = new ItemStack(guiMaterial(materialPath, fallbackMaterial));
+        ItemMeta meta = item.getItemMeta();
+        meta.setDisplayName(guiText(namePath, fallbackName));
+        List<String> lore = guiLore(lorePath, fallbackLore);
+        if (!lore.isEmpty()) meta.setLore(lore);
+        item.setItemMeta(meta);
+        return item;
+    }
+
     private void openRecipeMenu(Player p) {
+        int size = guiSize("gui.recipe.main.size", 27);
         RecipeHolder holder = new RecipeHolder(0);
-        Inventory inv = Bukkit.createInventory(holder, 27, "§8KASTARA • Progression 1 → 2 → 3");
+        Inventory inv = Bukkit.createInventory(holder, size, guiText("gui.recipe.main.title", "&8KASTARA • Progression 1 → 2 → 3"));
         holder.inventory = inv;
-        ItemStack filler = named(Material.BLACK_STAINED_GLASS_PANE, " ");
+        ItemStack filler = named(guiMaterial("gui.recipe.main.filler.material", "BLACK_STAINED_GLASS_PANE"),
+                guiText("gui.recipe.main.filler.name", " "));
         for (int i = 0; i < inv.getSize(); i++) inv.setItem(i, filler);
 
         int active = stages.getOrDefault(p.getUniqueId(), 0);
-        inv.setItem(4, recipeInfo(Material.WRITABLE_BOOK, "&6&lBREAK YOUR LIMIT",
-                "&7Selesaikan setiap tahap secara berurutan.",
-                "&f1. Sharp as a Diamond",
-                "&f2. Hard as a Diamond",
-                "&f3. Absolute Unit",
-                "&8Klik ikon tahap untuk melihat resep."));
-        int[] slots = {10, 13, 16};
+        int infoSlot = guiSlot("gui.recipe.main.info.slot", 4, size);
+        inv.setItem(infoSlot, guiItem("gui.recipe.main.info.material", "WRITABLE_BOOK",
+                "gui.recipe.main.info.name", "&6&lBREAK YOUR LIMIT",
+                "gui.recipe.main.info.lore", List.of("&7Selesaikan setiap tahap secara berurutan.",
+                        "&f1. Sharp as a Diamond", "&f2. Hard as a Diamond", "&f3. Absolute Unit",
+                        "&8Klik ikon tahap untuk melihat resep.")));
+
         for (int stage = 1; stage <= 3; stage++) {
-            ItemStack icon = makeStageItem(stage, null);
+            String base = "gui.recipe.main.stage-" + stage + ".";
+            int fallbackSlot = new int[]{10, 13, 16}[stage - 1];
+            int slot = guiSlot(base + "slot", fallbackSlot, size);
+            ItemStack icon = guiItem(base + "material", "PLAYER_HEAD", base + "name",
+                    defaultStageName(stage), base + "lore", List.of(
+                            stage == 1 ? "&7Syarat: Player Head" :
+                            stage == 2 ? "&7Syarat: Stage 1 aktif + Player Head" :
+                                    "&7Syarat: Stage 1 & 2 aktif + Player Head",
+                            "&eKlik untuk melihat resep"));
             ItemMeta meta = icon.getItemMeta();
             List<String> lore = meta.hasLore() ? new ArrayList<>(meta.getLore()) : new ArrayList<>();
             lore.add(" ");
-            lore.add(color(stage <= active ? "&a✔ SUDAH DIAKTIFKAN"
-                    : stage == active + 1 ? "&e▶ TAHAP BERIKUTNYA"
-                    : "&c🔒 TERKUNCI"));
-            if (stage == 1) lore.add(color("&7Syarat: Player Head"));
-            if (stage == 2) lore.add(color("&7Syarat: Stage 1 aktif + Player Head"));
-            if (stage == 3) lore.add(color("&7Syarat: Stage 1 & 2 aktif + Player Head"));
-            lore.add(color("&eKlik untuk melihat resep"));
+            lore.add(color(stage <= active ? getConfig().getString(base + "status-active", "&a✔ SUDAH DIAKTIFKAN")
+                    : stage == active + 1 ? getConfig().getString(base + "status-next", "&e▶ TAHAP BERIKUTNYA")
+                    : getConfig().getString(base + "status-locked", "&c🔒 TERKUNCI")));
             meta.setLore(lore);
             icon.setItemMeta(meta);
-            inv.setItem(slots[stage - 1], icon);
+            inv.setItem(slot, icon);
         }
-        inv.setItem(11, named(Material.ARROW, "&eTahap 1 → 2"));
-        inv.setItem(14, named(Material.ARROW, "&eTahap 2 → 3"));
-        inv.setItem(22, recipeInfo(Material.PAPER, "&e&lCARA PROGRES",
-                "&71. Craft item tahap pertama.",
-                "&72. Letakkan item di lantai.",
-                "&73. Lihat item lalu Shift + Klik Kanan.",
-                "&74. Ulangi untuk tahap berikutnya.",
-                "&cProgres reset jika mati / kehilangan life."));
+
+        int[] arrowFallback = {11, 14};
+        for (int i = 0; i < 2; i++) {
+            String base = "gui.recipe.main.arrow-" + (i + 1) + ".";
+            int slot = guiSlot(base + "slot", arrowFallback[i], size);
+            inv.setItem(slot, guiItem(base + "material", "ARROW", base + "name",
+                    i == 0 ? "&eTahap 1 → 2" : "&eTahap 2 → 3", base + "lore", List.of()));
+        }
+        inv.setItem(guiSlot("gui.recipe.main.instructions.slot", 22, size),
+                guiItem("gui.recipe.main.instructions.material", "PAPER",
+                        "gui.recipe.main.instructions.name", "&e&lCARA PROGRES",
+                        "gui.recipe.main.instructions.lore", List.of("&71. Craft item tahap pertama.",
+                                "&72. Letakkan item di lantai.", "&73. Lihat item lalu Shift + Klik Kanan.",
+                                "&74. Ulangi untuk tahap berikutnya.", "&cProgres reset jika mati / kehilangan life.")));
         p.openInventory(inv);
     }
 
@@ -906,10 +956,13 @@ public final class KASTARAPlayerKiller extends JavaPlugin implements Listener {
     }
 
     private void openRecipeDetail(Player p, int stage) {
+        int size = guiSize("gui.recipe.detail.size", 45);
         RecipeHolder holder = new RecipeHolder(stage);
-        Inventory inv = Bukkit.createInventory(holder, 45, "§8Recipe • " + defaultStageName(stage));
+        Inventory inv = Bukkit.createInventory(holder, size,
+                guiText("gui.recipe.detail.title", "&8Recipe • {stage}").replace("{stage}", defaultStageName(stage)));
         holder.inventory = inv;
-        ItemStack filler = named(Material.GRAY_STAINED_GLASS_PANE, " ");
+        ItemStack filler = named(guiMaterial("gui.recipe.detail.filler.material", "GRAY_STAINED_GLASS_PANE"),
+                guiText("gui.recipe.detail.filler.name", " "));
         for (int i = 0; i < inv.getSize(); i++) inv.setItem(i, filler);
         int active = stages.getOrDefault(p.getUniqueId(), 0);
         String stageLabel = switch (stage) {
@@ -917,12 +970,14 @@ public final class KASTARAPlayerKiller extends JavaPlugin implements Listener {
             case 2 -> "TAHAP 2 / 3 • BUTUH TAHAP 1";
             default -> "TAHAP 3 / 3 • TAHAP FINAL";
         };
-        inv.setItem(4, recipeInfo(Material.BOOK, "&6&l" + stageLabel,
-                stage == 1 ? "&7Bisa dibuat dari awal dengan Player Head."
-                        : stage == 2 ? "&7Aktifkan Sharp as a Diamond sebelum crafting."
-                        : "&7Aktifkan Hard as a Diamond sebelum crafting.",
-                "&7Urutan aktivasi: 1 → 2 → 3",
-                "&cMati / kehilangan life akan mereset progres."));
+        inv.setItem(guiSlot("gui.recipe.detail.info.slot", 4, size),
+                guiItem("gui.recipe.detail.info.material", "BOOK", "gui.recipe.detail.info.name",
+                        "&6&l" + stageLabel, "gui.recipe.detail.info.lore",
+                        List.of(stage == 1 ? "&7Bisa dibuat dari awal dengan Player Head."
+                                : stage == 2 ? "&7Aktifkan Sharp as a Diamond sebelum crafting."
+                                : "&7Aktifkan Hard as a Diamond sebelum crafting.",
+                                "&7Urutan aktivasi: 1 → 2 → 3", "&cMati / kehilangan life akan mereset progres.")));
+
         String base = "recipes.stage-" + stage + ".";
         List<String> rows = getConfig().getStringList(base + "shape");
         if (rows.size() != 3) rows = switch (stage) {
@@ -937,18 +992,23 @@ public final class KASTARAPlayerKiller extends JavaPlugin implements Listener {
             Material m = Material.matchMaterial(getConfig().getString(base + "ingredients." + c, fallback));
             mats.put(c, m == null ? Material.BARRIER : m);
         }
-        int[] slots = {10,11,12,19,20,21,28,29,30};
+        List<Integer> ingredientSlots = getConfig().getIntegerList("gui.recipe.detail.ingredient-slots");
+        int[] defaults = {10,11,12,19,20,21,28,29,30};
         for (int r=0;r<3;r++) for (int c=0;c<3;c++) {
             char symbol = rows.get(r).charAt(c);
             if (symbol == ' ') continue;
+            int index = r*3+c;
+            int slot = ingredientSlots.size() == 9 ? ingredientSlots.get(index) : defaults[index];
+            if (slot < 0 || slot >= size) slot = defaults[index];
             ItemStack ingredient = new ItemStack(mats.getOrDefault(symbol, Material.BARRIER));
             ItemMeta meta = ingredient.getItemMeta();
-            if (symbol == 'H') meta.setDisplayName(color("&fPlayer Head &7(custom item)"));
-            else meta.setDisplayName(color("&f" + mats.get(symbol).name()));
+            meta.setDisplayName(color(symbol == 'H' ? "&fPlayer Head &7(custom item)" : "&f" + mats.get(symbol).name()));
             ingredient.setItemMeta(meta);
-            inv.setItem(slots[r*3+c], ingredient);
+            inv.setItem(slot, ingredient);
         }
-        inv.setItem(23, named(Material.ARROW, "&eHASIL CRAFTING"));
+        inv.setItem(guiSlot("gui.recipe.detail.result-arrow.slot", 23, size),
+                guiItem("gui.recipe.detail.result-arrow.material", "ARROW", "gui.recipe.detail.result-arrow.name",
+                        "&eHASIL CRAFTING", "gui.recipe.detail.result-arrow.lore", List.of()));
         ItemStack output = makeStageItem(stage, null);
         ItemMeta outputMeta = output.getItemMeta();
         List<String> outputLore = outputMeta.hasLore() ? new ArrayList<>(outputMeta.getLore()) : new ArrayList<>();
@@ -957,11 +1017,14 @@ public final class KASTARAPlayerKiller extends JavaPlugin implements Listener {
                 : stage == active + 1 ? "&eStatus: tahap berikutnya"
                 : "&cStatus: terkunci — selesaikan tahap sebelumnya"));
         outputLore.add(color("&7Setelah craft: taruh di lantai, lihat, Shift + Klik Kanan."));
-        outputMeta.setLore(outputLore);
-        output.setItemMeta(outputMeta);
-        inv.setItem(25, output);
-        inv.setItem(40, named(Material.ARROW, "&eKembali ke urutan tahap"));
-        inv.setItem(44, named(Material.BARRIER, "&cTutup"));
+        outputMeta.setLore(outputLore); output.setItemMeta(outputMeta);
+        inv.setItem(guiSlot("gui.recipe.detail.output.slot", 25, size), output);
+        inv.setItem(guiSlot("gui.recipe.detail.back.slot", 40, size),
+                guiItem("gui.recipe.detail.back.material", "ARROW", "gui.recipe.detail.back.name",
+                        "&eKembali ke urutan tahap", "gui.recipe.detail.back.lore", List.of()));
+        inv.setItem(guiSlot("gui.recipe.detail.close.slot", 44, size),
+                guiItem("gui.recipe.detail.close.material", "BARRIER", "gui.recipe.detail.close.name",
+                        "&cTutup", "gui.recipe.detail.close.lore", List.of()));
         p.openInventory(inv);
     }
 
@@ -976,12 +1039,15 @@ public final class KASTARAPlayerKiller extends JavaPlugin implements Listener {
         if (!(e.getWhoClicked() instanceof Player p) || !(e.getInventory().getHolder() instanceof RecipeHolder holder)) return;
         e.setCancelled(true);
         if (holder.stage == 0) {
-            int slot = e.getRawSlot();
-            if (slot == 10) openRecipeDetail(p, 1);
-            else if (slot == 13) openRecipeDetail(p, 2);
-            else if (slot == 16) openRecipeDetail(p, 3);
-        } else if (e.getRawSlot() == 40) openRecipeMenu(p);
-        else if (e.getRawSlot() == 44) p.closeInventory();
+            for (int stage = 1; stage <= 3; stage++) {
+                String path = "gui.recipe.main.stage-" + stage + ".slot";
+                int fallback = new int[]{10,13,16}[stage-1];
+                if (e.getRawSlot() == getConfig().getInt(path, fallback)) { openRecipeDetail(p, stage); return; }
+            }
+        } else {
+            if (e.getRawSlot() == getConfig().getInt("gui.recipe.detail.back.slot", 40)) openRecipeMenu(p);
+            else if (e.getRawSlot() == getConfig().getInt("gui.recipe.detail.close.slot", 44)) p.closeInventory();
+        }
     }
 
     private static final class RecipeHolder implements InventoryHolder {
