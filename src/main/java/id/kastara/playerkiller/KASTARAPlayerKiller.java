@@ -777,7 +777,7 @@ public final class KASTARAPlayerKiller extends JavaPlugin implements Listener {
                     Location chest = playerBase.clone().add(0, 1.18, 0);
                     double orbitPhase = ticks * 0.16;
                     for (int i = 0; i < crystals.size(); i++) {
-                        ItemDisplay crystal = crystals.get(i);
+                        EnderCrystal crystal = crystals.get(i);
                         if (!crystal.isValid()) continue;
                         double angle = orbitPhase + (Math.PI * 2.0 * i / 4.0);
                         Location orbit = playerBase.clone().add(
@@ -806,7 +806,7 @@ public final class KASTARAPlayerKiller extends JavaPlugin implements Listener {
                     }
 
                     if (ticks == 72) {
-                        for (ItemDisplay crystal : crystals) if (crystal.isValid()) crystal.remove();
+                        for (EnderCrystal crystal : crystals) if (crystal.isValid()) crystal.remove();
                         if (headEntity.isValid()) headEntity.remove();
                         // Ledakan End Crystal + dentuman thunder, seluruhnya visual/audio tanpa block damage.
                         world.playSound(chest, Sound.ENTITY_GENERIC_EXPLODE, 2.0f, 0.72f);
