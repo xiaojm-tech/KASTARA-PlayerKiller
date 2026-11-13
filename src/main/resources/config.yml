@@ -25,6 +25,13 @@ effects:
   refresh-below-ticks: 80
   activation-sound: ITEM_NETHERITE_UPGRADE_SMITHING_TEMPLATE_USE
   # Animasi kepala naik sekitar 2 blok, diakhiri ledakan partikel ungu (diatur di kode).
+  stage-2-shield:
+    scale: 0.45
+    height: 0.62
+    radius: 0.62
+    rotation-speed: 0.00135
+  stage-3-nether-star:
+    scale: 0.50
 
 final-title:
   title: "&d&lare you a player or a killer??"
@@ -72,15 +79,7 @@ messages:
   guide-warning: "&cPeringatan: efek dan progres hilang jika kamu mati atau kehilangan life."
   guide-actionbar: "&eBreak your limit &7• Tahap berikutnya: &f{stage}"
 
-# Efek visual yang bisa disesuaikan tanpa mengubah source code.
-effects:
-  stage-2-shield:
-    scale: 0.45          # 1.5x dari ukuran sebelumnya (0.30)
-    height: 0.62         # posisi orbit lebih rendah di sekitar kepala yang dipajang
-    radius: 0.62
-    rotation-speed: 0.00135
-  stage-3-nether-star:
-    scale: 0.50
+# Efek visual Stage 2 dan Stage 3 dapat diatur pada bagian effects di atas.
 
 # Seluruh tampilan GUI /recipe dapat dikustomisasi di bagian ini.
 # Material harus menggunakan nama Material Bukkit/Spigot yang valid.
