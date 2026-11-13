@@ -21,6 +21,7 @@ import org.bukkit.enchantments.Enchantment;
 import org.bukkit.inventory.ItemFlag;
 import org.bukkit.entity.Item;
 import org.bukkit.entity.ItemDisplay;
+import org.bukkit.entity.EnderCrystal;
 import org.bukkit.util.Transformation;
 import org.joml.Vector3f;
 import org.joml.Quaternionf;
@@ -47,7 +48,7 @@ public final class KASTARAPlayerKiller extends JavaPlugin implements Listener {
     private NamespacedKey itemKey;
     private final Map<UUID, Integer> stages = new HashMap<>();
     private final Map<UUID, Integer> lifeSnapshot = new ConcurrentHashMap<>();
-    private final Map<UUID, List<ItemDisplay>> stage2ShieldHalos = new HashMap<>();
+    private final Map<String, List<ItemDisplay>> stage2ShieldHalos = new HashMap<>();
     private final Set<UUID> firstHeadGuideSent = new HashSet<>();
     private Object lifeManager;
     private Method getLivesMethod;
@@ -628,51 +629,61 @@ public final class KASTARAPlayerKiller extends JavaPlugin implements Listener {
 
     // Empat ItemDisplay SHIELD membentuk halo yang mengorbit kepala player pada Stage 2.
     private void updateStage2ShieldHalos() {
-        long now = System.currentTimeMillis();
-        for (Player player : Bukkit.getOnlinePlayers()) {
-            UUID id = player.getUniqueId();
-            if (stages.getOrDefault(id, 0) != 2) {
-                removeStage2ShieldHalo(id);
-                continue;
-            }
-            List<ItemDisplay> displays = stage2ShieldHalos.get(id);
-            if (displays == null || displays.stream().anyMatch(d -> !d.isValid())) {
-                removeStage2ShieldHalo(id);
-                displays = new ArrayList<>();
-                for (int i = 0; i < 4; i++) {
-                    ItemDisplay shield = player.getWorld().spawn(player.getLocation(), ItemDisplay.class, entity -> {
-                        entity.setItemStack(new ItemStack(Material.SHIELD));
-                        entity.setItemDisplayTransform(ItemDisplay.ItemDisplayTransform.FIXED);
-                        entity.setPersistent(false);
-                        entity.setInvulnerable(true);
-                        entity.setSilent(true);
-                        entity.setTransformation(new Transformation(
-                                new Vector3f(0f, 0f, 0f), new Quaternionf(),
-                                new Vector3f(0.30f, 0.30f, 0.30f), new Quaternionf()));
-                    });
-                    displays.add(shield);
+        Set<String> activeLocations = new HashSet<>();
+        if (getConfig().isConfigurationSection("placed")) {
+            for (String key : getConfig().getConfigurationSection("placed").getKeys(false)) {
+                if (getConfig().getInt("placed." + key, 0) != 2) continue;
+                String[] parts = key.split(",");
+                if (parts.length != 4) continue;
+                World world = Bukkit.getWorld(parts[0]);
+                if (world == null) continue;
+                try {
+                    Location blockLoc = new Location(world, Integer.parseInt(parts[1]),
+                            Integer.parseInt(parts[2]), Integer.parseInt(parts[3]));
+                    Material type = blockLoc.getBlock().getType();
+                    if (type != Material.PLAYER_HEAD && type != Material.PLAYER_WALL_HEAD) continue;
+                    activeLocations.add(key);
+                    List<ItemDisplay> displays = stage2ShieldHalos.get(key);
+                    if (displays == null || displays.size() != 4 || displays.stream().anyMatch(d -> !d.isValid())) {
+                        removeStage2ShieldHalo(key);
+                        displays = new ArrayList<>();
+                        for (int i = 0; i < 4; i++) {
+                            ItemDisplay shield = world.spawn(blockLoc.clone().add(0.5, 1.0, 0.5),
+                                    ItemDisplay.class, entity -> {
+                                entity.setItemStack(new ItemStack(Material.SHIELD));
+                                entity.setItemDisplayTransform(ItemDisplay.ItemDisplayTransform.FIXED);
+                                entity.setPersistent(false);
+                                entity.setInvulnerable(true);
+                                entity.setSilent(true);
+                                entity.setTransformation(new Transformation(
+                                        new Vector3f(0f, 0f, 0f), new Quaternionf(),
+                                        new Vector3f(0.30f, 0.30f, 0.30f), new Quaternionf()));
+                            });
+                            displays.add(shield);
+                        }
+                        stage2ShieldHalos.put(key, displays);
+                    }
+                    Location center = blockLoc.clone().add(0.5, 0.82, 0.5);
+                    double phase = System.currentTimeMillis() * 0.00135;
+                    for (int i = 0; i < displays.size(); i++) {
+                        double angle = phase + (Math.PI * 2.0 * i / 4.0);
+                        Location orbit = center.clone().add(Math.cos(angle) * 0.62,
+                                Math.sin(angle * 2.0) * 0.08, Math.sin(angle) * 0.62);
+                        ItemDisplay shield = displays.get(i);
+                        shield.teleport(orbit);
+                        shield.setRotation((float) Math.toDegrees(-angle) + 90.0f, 0.0f);
+                    }
+                } catch (NumberFormatException ignored) {
+                    getLogger().warning("Lokasi Stage 2 tidak valid: " + key);
                 }
-                stage2ShieldHalos.put(id, displays);
-            }
-            // Pusat halo selalu mengikuti posisi kepala PLAYER aktif, bukan lokasi item
-            // Stage 2 yang dipajang di lantai. EyeLocation juga mengikuti gerakan/lompatan.
-            Location head = player.getEyeLocation().add(0, 0.18, 0);
-            double phase = now * 0.00135;
-            for (int i = 0; i < displays.size(); i++) {
-                double angle = phase + (Math.PI * 2.0 * i / 4.0);
-                Location orbit = head.clone().add(Math.cos(angle) * 0.62,
-                        Math.sin(angle * 2.0) * 0.10, Math.sin(angle) * 0.62);
-                ItemDisplay shield = displays.get(i);
-                shield.teleport(orbit);
-                shield.setRotation((float) Math.toDegrees(-angle) + 90.0f, 0.0f);
             }
         }
-        for (UUID id : new HashSet<>(stage2ShieldHalos.keySet())) {
-            if (Bukkit.getPlayer(id) == null) removeStage2ShieldHalo(id);
+        for (String key : new HashSet<>(stage2ShieldHalos.keySet())) {
+            if (!activeLocations.contains(key)) removeStage2ShieldHalo(key);
         }
     }
 
-    private void removeStage2ShieldHalo(UUID id) {
+    private void removeStage2ShieldHalo(String id) {
         List<ItemDisplay> displays = stage2ShieldHalos.remove(id);
         if (displays != null) for (ItemDisplay display : displays)
             if (display.isValid()) display.remove();
@@ -731,17 +742,14 @@ public final class KASTARAPlayerKiller extends JavaPlugin implements Listener {
 
         if (stage == 3) {
             // Empat End Crystal kecil mengorbit badan, lalu konvergen ke tengah dada.
-            List<ItemDisplay> crystals = new ArrayList<>();
+            List<EnderCrystal> crystals = new ArrayList<>();
             for (int i = 0; i < 4; i++) {
-                ItemDisplay crystal = world.spawn(p.getLocation(), ItemDisplay.class, display -> {
-                    display.setItemStack(new ItemStack(Material.END_CRYSTAL));
-                    display.setItemDisplayTransform(ItemDisplay.ItemDisplayTransform.FIXED);
-                    display.setPersistent(false);
-                    display.setInvulnerable(true);
-                    display.setSilent(true);
-                    display.setTransformation(new Transformation(
-                            new Vector3f(0f, 0f, 0f), new Quaternionf(),
-                            new Vector3f(0.50f, 0.50f, 0.50f), new Quaternionf()));
+                EnderCrystal crystal = world.spawn(p.getLocation(), EnderCrystal.class, entity -> {
+                    entity.setShowingBottom(true);
+                    entity.setBeamTarget(null);
+                    entity.setPersistent(false);
+                    entity.setInvulnerable(true);
+                    entity.setSilent(true);
                 });
                 crystals.add(crystal);
             }
@@ -753,7 +761,7 @@ public final class KASTARAPlayerKiller extends JavaPlugin implements Listener {
                 @Override public void run() {
                     if (!p.isOnline() || !p.isValid()) {
                         if (headEntity.isValid()) headEntity.remove();
-                        for (ItemDisplay crystal : crystals) if (crystal.isValid()) crystal.remove();
+                        for (EnderCrystal crystal : crystals) if (crystal.isValid()) crystal.remove();
                         animation[0].cancel();
                         return;
                     }
@@ -1021,9 +1029,9 @@ public final class KASTARAPlayerKiller extends JavaPlugin implements Listener {
         e.setCancelled(true);
         if (holder.stage == 0) {
             int slot = e.getRawSlot();
-            if (slot == 11) openRecipeDetail(p, 1);
+            if (slot == 10) openRecipeDetail(p, 1);
             else if (slot == 13) openRecipeDetail(p, 2);
-            else if (slot == 15) openRecipeDetail(p, 3);
+            else if (slot == 16) openRecipeDetail(p, 3);
         } else if (e.getRawSlot() == 40) openRecipeMenu(p);
         else if (e.getRawSlot() == 44) p.closeInventory();
     }
