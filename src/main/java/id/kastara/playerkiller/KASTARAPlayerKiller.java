@@ -766,7 +766,7 @@ public final class KASTARAPlayerKiller extends JavaPlugin implements Listener {
                     if(ticks==72){
                         for(ItemDisplay star:stars)if(star.isValid())star.remove();
                         if(headEntity.isValid())headEntity.remove();
-                        world.playSound(chest,Sound.ENTITY_LIGHTNING_BOLT_THUNDER,1.8f,0.85f);
+                        world.playSound(chest,Sound.BLOCK_END_PORTAL_SPAWN,1.8f,0.85f);
                         world.spawnParticle(Particle.EXPLOSION_EMITTER,chest,1,0,0,0,0);
                         world.spawnParticle(Particle.FLASH,chest,1,0,0,0,0,Color.WHITE);
                     }
