@@ -627,7 +627,7 @@ public final class KASTARAPlayerKiller extends JavaPlugin implements Listener {
         }
     }
 
-    // Empat ItemDisplay SHIELD membentuk halo yang mengorbit kepala player pada Stage 2.
+    // Empat shield membentuk halo yang lebih besar dan lebih rendah di sekitar item Stage 2 di lantai.
     private void updateStage2ShieldHalos() {
         Set<String> activeLocations = new HashSet<>();
         if (getConfig().isConfigurationSection("placed")) {
@@ -647,8 +647,9 @@ public final class KASTARAPlayerKiller extends JavaPlugin implements Listener {
                     if (displays == null || displays.size() != 4 || displays.stream().anyMatch(d -> !d.isValid())) {
                         removeStage2ShieldHalo(key);
                         displays = new ArrayList<>();
+                        float scale = (float) getConfig().getDouble("effects.stage-2-shield.scale", 0.45);
                         for (int i = 0; i < 4; i++) {
-                            ItemDisplay shield = world.spawn(blockLoc.clone().add(0.5, 1.0, 0.5),
+                            ItemDisplay shield = world.spawn(blockLoc.clone().add(0.5, 0.75, 0.5),
                                     ItemDisplay.class, entity -> {
                                 entity.setItemStack(new ItemStack(Material.SHIELD));
                                 entity.setItemDisplayTransform(ItemDisplay.ItemDisplayTransform.FIXED);
@@ -657,18 +658,20 @@ public final class KASTARAPlayerKiller extends JavaPlugin implements Listener {
                                 entity.setSilent(true);
                                 entity.setTransformation(new Transformation(
                                         new Vector3f(0f, 0f, 0f), new Quaternionf(),
-                                        new Vector3f(0.30f, 0.30f, 0.30f), new Quaternionf()));
+                                        new Vector3f(scale, scale, scale), new Quaternionf()));
                             });
                             displays.add(shield);
                         }
                         stage2ShieldHalos.put(key, displays);
                     }
-                    Location center = blockLoc.clone().add(0.5, 0.82, 0.5);
-                    double phase = System.currentTimeMillis() * 0.00135;
+                    Location center = blockLoc.clone().add(0.5,
+                            getConfig().getDouble("effects.stage-2-shield.height", 0.62), 0.5);
+                    double radius = getConfig().getDouble("effects.stage-2-shield.radius", 0.62);
+                    double phase = System.currentTimeMillis() * getConfig().getDouble("effects.stage-2-shield.rotation-speed", 0.00135);
                     for (int i = 0; i < displays.size(); i++) {
                         double angle = phase + (Math.PI * 2.0 * i / 4.0);
-                        Location orbit = center.clone().add(Math.cos(angle) * 0.62,
-                                Math.sin(angle * 2.0) * 0.08, Math.sin(angle) * 0.62);
+                        Location orbit = center.clone().add(Math.cos(angle) * radius,
+                                Math.sin(angle * 2.0) * 0.055, Math.sin(angle) * radius);
                         ItemDisplay shield = displays.get(i);
                         shield.teleport(orbit);
                         shield.setRotation((float) Math.toDegrees(-angle) + 90.0f, 0.0f);
@@ -741,17 +744,21 @@ public final class KASTARAPlayerKiller extends JavaPlugin implements Listener {
         headEntity.setVelocity(new org.bukkit.util.Vector(0, 0, 0));
 
         if (stage == 3) {
-            // Empat End Crystal kecil mengorbit badan, lalu konvergen ke tengah dada.
-            List<EnderCrystal> crystals = new ArrayList<>();
+            // Empat Nether Star ItemDisplay mengorbit badan, lalu konvergen ke dada.
+            List<ItemDisplay> stars = new ArrayList<>();
+            float starScale = (float) getConfig().getDouble("effects.stage-3-nether-star.scale", 0.50);
             for (int i = 0; i < 4; i++) {
-                EnderCrystal crystal = world.spawn(p.getLocation(), EnderCrystal.class, entity -> {
-                    entity.setShowingBottom(true);
-                    entity.setBeamTarget(null);
+                ItemDisplay star = world.spawn(p.getLocation(), ItemDisplay.class, entity -> {
+                    entity.setItemStack(new ItemStack(Material.NETHER_STAR));
+                    entity.setItemDisplayTransform(ItemDisplay.ItemDisplayTransform.FIXED);
                     entity.setPersistent(false);
                     entity.setInvulnerable(true);
                     entity.setSilent(true);
+                    entity.setTransformation(new Transformation(
+                            new Vector3f(0f, 0f, 0f), new Quaternionf(),
+                            new Vector3f(starScale, starScale, starScale), new Quaternionf()));
                 });
-                crystals.add(crystal);
+                stars.add(star);
             }
 
             final BukkitTask[] animation = new BukkitTask[1];
@@ -761,7 +768,7 @@ public final class KASTARAPlayerKiller extends JavaPlugin implements Listener {
                 @Override public void run() {
                     if (!p.isOnline() || !p.isValid()) {
                         if (headEntity.isValid()) headEntity.remove();
-                        for (EnderCrystal crystal : crystals) if (crystal.isValid()) crystal.remove();
+                        for (ItemDisplay star : stars) if (star.isValid()) star.remove();
                         animation[0].cancel();
                         return;
                     }
@@ -776,9 +783,9 @@ public final class KASTARAPlayerKiller extends JavaPlugin implements Listener {
 
                     Location chest = playerBase.clone().add(0, 1.18, 0);
                     double orbitPhase = ticks * 0.16;
-                    for (int i = 0; i < crystals.size(); i++) {
-                        EnderCrystal crystal = crystals.get(i);
-                        if (!crystal.isValid()) continue;
+                    for (int i = 0; i < stars.size(); i++) {
+                        ItemDisplay star = stars.get(i);
+                        if (!star.isValid()) continue;
                         double angle = orbitPhase + (Math.PI * 2.0 * i / 4.0);
                         Location orbit = playerBase.clone().add(
                                 Math.cos(angle) * 1.05,
@@ -788,6 +795,45 @@ public final class KASTARAPlayerKiller extends JavaPlugin implements Listener {
                         if (ticks < 48) {
                             target = orbit;
                         } else {
+                            double progress = Math.min(1.0, (ticks - 48) / 23.0);
+                            double startAngle = (48 * 0.16) + (Math.PI * 2.0 * i / 4.0);
+                            Location startOrbit = playerBase.clone().add(
+                                    Math.cos(startAngle) * 1.05,
+                                    0.95 + Math.sin(48 * 0.12 + i) * 0.35,
+                                    Math.sin(startAngle) * 1.05);
+                            target = startOrbit.clone().add(
+                                    (chest.getX() - startOrbit.getX()) * progress,
+                                    (chest.getY() - startOrbit.getY()) * progress,
+                                    (chest.getZ() - startOrbit.getZ()) * progress);
+                        }
+                        star.teleport(target);
+                        star.setRotation((float) (ticks * 12.0 + i * 90.0), (float) (Math.sin(ticks * 0.1) * 18.0));
+                        world.spawnParticle(Particle.END_ROD, target, 2, 0.025, 0.025, 0.025, 0.002);
+                        world.spawnParticle(Particle.ELECTRIC_SPARK, target, 1, 0.02, 0.02, 0.02, 0.001);
+                    }
+
+                    if (ticks == 72) {
+                        for (ItemDisplay star : stars) if (star.isValid()) star.remove();
+                        if (headEntity.isValid()) headEntity.remove();
+                        // Burst visual/audio saja; tidak memanggil ledakan entity sehingga block aman.
+                        world.playSound(chest, Sound.ENTITY_GENERIC_EXPLODE, 2.0f, 0.72f);
+                        world.playSound(chest, Sound.ENTITY_LIGHTNING_BOLT_THUNDER, 1.5f, 0.85f);
+                        world.spawnParticle(Particle.EXPLOSION_EMITTER, chest, 1, 0, 0, 0, 0);
+                        world.spawnParticle(Particle.FLASH, chest, 1, 0, 0, 0, 0);
+                    }
+                    if (ticks >= 80) {
+                        applyStage(p, 3);
+                        world.playSound(chest, Sound.BLOCK_RESPAWN_ANCHOR_DEPLETE, 1.4f, 0.8f);
+                        world.playSound(chest, Sound.UI_TOAST_CHALLENGE_COMPLETE, 1.2f, 1.0f);
+                        world.spawnParticle(Particle.FIREWORK, chest, 35, 0.45, 0.6, 0.45, 0.08);
+                        world.spawnParticle(Particle.PORTAL, chest, 45, 0.55, 0.7, 0.55, 0.35);
+                        animation[0].cancel();
+                        return;
+                    }
+                    ticks++;
+                }
+            }, 0L, 1L);
+        } else {
                             double progress = Math.min(1.0, (ticks - 48) / 23.0);
                             double startAngle = (48 * 0.16) + (Math.PI * 2.0 * i / 4.0);
                             Location startOrbit = playerBase.clone().add(
