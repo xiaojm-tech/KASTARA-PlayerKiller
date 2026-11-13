@@ -581,9 +581,13 @@ public final class KASTARAPlayerKiller extends JavaPlugin implements Listener {
                     world.spawnParticle(Particle.DUST, wound, 2, 0.035, 0.025, 0.035, 0,
                             new Particle.DustOptions(Color.fromRGB(175, 8, 18), 0.55f));
                     // Api dekoratif sangat kecil; redstone/darah tetap menjadi efek dominan.
-                    Location ember = center.clone().add(0, -0.46, 0);
-                    world.spawnParticle(Particle.FLAME, ember, 1, 0.035, 0.008, 0.035, 0.001);
-                    world.spawnParticle(Particle.SMOKE, ember, 1, 0.025, 0.008, 0.025, 0.001);
+                    Location ember = blockLoc.clone().add(0.5, 0.045, 0.5);
+                    // Api kecil seperti flint and steel: beberapa lidah api dan asap tipis
+                    // muncul di permukaan lantai di sekeliling pangkal kepala.
+                    world.spawnParticle(Particle.FLAME, ember, 4, 0.12, 0.015, 0.12, 0.002);
+                    world.spawnParticle(Particle.SMOKE, ember.clone().add(0, 0.025, 0), 2,
+                            0.10, 0.025, 0.10, 0.001);
+                    world.spawnParticle(Particle.LAVA, ember, 1, 0.08, 0.01, 0.08, 0);
                 }
 
                 if (exists || stage == 2) continue;
@@ -650,12 +654,14 @@ public final class KASTARAPlayerKiller extends JavaPlugin implements Listener {
                 }
                 stage2ShieldHalos.put(id, displays);
             }
-            Location head = player.getLocation().add(0, 2.05, 0);
+            // Pusat halo selalu mengikuti posisi kepala PLAYER aktif, bukan lokasi item
+            // Stage 2 yang dipajang di lantai. EyeLocation juga mengikuti gerakan/lompatan.
+            Location head = player.getEyeLocation().add(0, 0.18, 0);
             double phase = now * 0.00135;
             for (int i = 0; i < displays.size(); i++) {
                 double angle = phase + (Math.PI * 2.0 * i / 4.0);
-                Location orbit = head.clone().add(Math.cos(angle) * 0.72,
-                        Math.sin(angle * 2.0) * 0.10, Math.sin(angle) * 0.72);
+                Location orbit = head.clone().add(Math.cos(angle) * 0.62,
+                        Math.sin(angle * 2.0) * 0.10, Math.sin(angle) * 0.62);
                 ItemDisplay shield = displays.get(i);
                 shield.teleport(orbit);
                 shield.setRotation((float) Math.toDegrees(-angle) + 90.0f, 0.0f);
@@ -735,7 +741,7 @@ public final class KASTARAPlayerKiller extends JavaPlugin implements Listener {
                     display.setSilent(true);
                     display.setTransformation(new Transformation(
                             new Vector3f(0f, 0f, 0f), new Quaternionf(),
-                            new Vector3f(0.20f, 0.20f, 0.20f), new Quaternionf()));
+                            new Vector3f(0.50f, 0.50f, 0.50f), new Quaternionf()));
                 });
                 crystals.add(crystal);
             }
@@ -892,14 +898,55 @@ public final class KASTARAPlayerKiller extends JavaPlugin implements Listener {
 
     private void openRecipeMenu(Player p) {
         RecipeHolder holder = new RecipeHolder(0);
-        Inventory inv = Bukkit.createInventory(holder, 27, RECIPE_TITLE);
+        Inventory inv = Bukkit.createInventory(holder, 27, "§8KASTARA • Progression 1 → 2 → 3");
         holder.inventory = inv;
-        int[] slots = {11, 13, 15};
+        ItemStack filler = named(Material.BLACK_STAINED_GLASS_PANE, " ");
+        for (int i = 0; i < inv.getSize(); i++) inv.setItem(i, filler);
+
+        int active = stages.getOrDefault(p.getUniqueId(), 0);
+        inv.setItem(4, recipeInfo(Material.WRITABLE_BOOK, "&6&lBREAK YOUR LIMIT",
+                "&7Selesaikan setiap tahap secara berurutan.",
+                "&f1. Sharp as a Diamond",
+                "&f2. Hard as a Diamond",
+                "&f3. Absolute Unit",
+                "&8Klik ikon tahap untuk melihat resep."));
+        int[] slots = {10, 13, 16};
         for (int stage = 1; stage <= 3; stage++) {
             ItemStack icon = makeStageItem(stage, null);
+            ItemMeta meta = icon.getItemMeta();
+            List<String> lore = meta.hasLore() ? new ArrayList<>(meta.getLore()) : new ArrayList<>();
+            lore.add(" ");
+            lore.add(color(stage <= active ? "&a✔ SUDAH DIAKTIFKAN"
+                    : stage == active + 1 ? "&e▶ TAHAP BERIKUTNYA"
+                    : "&c🔒 TERKUNCI"));
+            if (stage == 1) lore.add(color("&7Syarat: Player Head"));
+            if (stage == 2) lore.add(color("&7Syarat: Stage 1 aktif + Player Head"));
+            if (stage == 3) lore.add(color("&7Syarat: Stage 1 & 2 aktif + Player Head"));
+            lore.add(color("&eKlik untuk melihat resep"));
+            meta.setLore(lore);
+            icon.setItemMeta(meta);
             inv.setItem(slots[stage - 1], icon);
         }
+        inv.setItem(11, named(Material.ARROW, "&eTahap 1 → 2"));
+        inv.setItem(14, named(Material.ARROW, "&eTahap 2 → 3"));
+        inv.setItem(22, recipeInfo(Material.PAPER, "&e&lCARA PROGRES",
+                "&71. Craft item tahap pertama.",
+                "&72. Letakkan item di lantai.",
+                "&73. Lihat item lalu Shift + Klik Kanan.",
+                "&74. Ulangi untuk tahap berikutnya.",
+                "&cProgres reset jika mati / kehilangan life."));
         p.openInventory(inv);
+    }
+
+    private ItemStack recipeInfo(Material material, String name, String... loreLines) {
+        ItemStack item = new ItemStack(material);
+        ItemMeta meta = item.getItemMeta();
+        meta.setDisplayName(color(name));
+        List<String> lore = new ArrayList<>();
+        for (String line : loreLines) lore.add(color(line));
+        meta.setLore(lore);
+        item.setItemMeta(meta);
+        return item;
     }
 
     private void openRecipeDetail(Player p, int stage) {
@@ -908,6 +955,18 @@ public final class KASTARAPlayerKiller extends JavaPlugin implements Listener {
         holder.inventory = inv;
         ItemStack filler = named(Material.GRAY_STAINED_GLASS_PANE, " ");
         for (int i = 0; i < inv.getSize(); i++) inv.setItem(i, filler);
+        int active = stages.getOrDefault(p.getUniqueId(), 0);
+        String stageLabel = switch (stage) {
+            case 1 -> "TAHAP 1 / 3 • MULAI DI SINI";
+            case 2 -> "TAHAP 2 / 3 • BUTUH TAHAP 1";
+            default -> "TAHAP 3 / 3 • TAHAP FINAL";
+        };
+        inv.setItem(4, recipeInfo(Material.BOOK, "&6&l" + stageLabel,
+                stage == 1 ? "&7Bisa dibuat dari awal dengan Player Head."
+                        : stage == 2 ? "&7Aktifkan Sharp as a Diamond sebelum crafting."
+                        : "&7Aktifkan Hard as a Diamond sebelum crafting.",
+                "&7Urutan aktivasi: 1 → 2 → 3",
+                "&cMati / kehilangan life akan mereset progres."));
         String base = "recipes.stage-" + stage + ".";
         List<String> rows = getConfig().getStringList(base + "shape");
         if (rows.size() != 3) rows = switch (stage) {
@@ -933,9 +992,19 @@ public final class KASTARAPlayerKiller extends JavaPlugin implements Listener {
             ingredient.setItemMeta(meta);
             inv.setItem(slots[r*3+c], ingredient);
         }
-        inv.setItem(23, named(Material.ARROW, "&eMenghasilkan"));
-        inv.setItem(25, makeStageItem(stage, null));
-        inv.setItem(40, named(Material.ARROW, "&eKembali"));
+        inv.setItem(23, named(Material.ARROW, "&eHASIL CRAFTING"));
+        ItemStack output = makeStageItem(stage, null);
+        ItemMeta outputMeta = output.getItemMeta();
+        List<String> outputLore = outputMeta.hasLore() ? new ArrayList<>(outputMeta.getLore()) : new ArrayList<>();
+        outputLore.add(" ");
+        outputLore.add(color(stage <= active ? "&aStatus: sudah diaktifkan"
+                : stage == active + 1 ? "&eStatus: tahap berikutnya"
+                : "&cStatus: terkunci — selesaikan tahap sebelumnya"));
+        outputLore.add(color("&7Setelah craft: taruh di lantai, lihat, Shift + Klik Kanan."));
+        outputMeta.setLore(outputLore);
+        output.setItemMeta(outputMeta);
+        inv.setItem(25, output);
+        inv.setItem(40, named(Material.ARROW, "&eKembali ke urutan tahap"));
         inv.setItem(44, named(Material.BARRIER, "&cTutup"));
         p.openInventory(inv);
     }
