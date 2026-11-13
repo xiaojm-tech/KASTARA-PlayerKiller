@@ -26,9 +26,9 @@ effects:
   activation-sound: ITEM_NETHERITE_UPGRADE_SMITHING_TEMPLATE_USE
   # Animasi kepala naik sekitar 2 blok, diakhiri ledakan partikel ungu (diatur di kode).
   stage-2-shield:
-    scale: 0.45
-    height: 0.62
-    radius: 0.62
+    scale: 0.45          # 1.5x dari ukuran awal 0.30
+    height: 0.36         # pusat orbit dekat bagian tengah kepala di lantai
+    radius: 0.40         # orbit rapat mengelilingi kepala
     rotation-speed: 0.00135
   stage-3-nether-star:
     scale: 0.50
