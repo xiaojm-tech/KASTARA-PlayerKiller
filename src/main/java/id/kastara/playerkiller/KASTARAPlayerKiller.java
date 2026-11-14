@@ -65,7 +65,6 @@ public final class KASTARAPlayerKiller extends JavaPlugin implements Listener {
             return;
         }
         loadData();
-        for (Player player : Bukkit.getOnlinePlayers()) syncPlayerKillerStage(player, stages.getOrDefault(player.getUniqueId(), 0));
         registerRecipes();
         getServer().getPluginManager().registerEvents(this, this);
         if (getCommand("recipe") != null) getCommand("recipe").setExecutor(this);
@@ -86,6 +85,7 @@ public final class KASTARAPlayerKiller extends JavaPlugin implements Listener {
             }
         }
         saveData();
+        for (Player player : Bukkit.getOnlinePlayers()) syncPlayerKillerStage(player, stages.getOrDefault(player.getUniqueId(), 0));
 
         // KASTARALives 1.4.0 has setLives(UUID,int), but no public life-change event.
         // Polling detects admin /life set reductions, including while the player is offline.
