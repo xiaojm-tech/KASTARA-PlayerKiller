@@ -791,7 +791,14 @@ public final class KASTARAPlayerKiller extends JavaPlugin implements Listener {
                         // Cue achievement sudah diputar saat kepala pecah pada tick 30.
                         world.spawnParticle(Particle.FIREWORK,chest,35,0.45,0.6,0.45,0.08);
                         world.spawnParticle(Particle.PORTAL,chest,45,0.55,0.7,0.55,0.35);
-                        stages.put(p.getUniqueId(),3);applyStage(p,3);saveData();showGlitchSubtitle(p);
+                        stages.put(p.getUniqueId(),3);applyStage(p,3);saveData();
+// Persistent bridge marker: KASTARA-Titles reads this to unlock LIMITLESS permanently.
+p.getPersistentDataContainer().set(
+        new NamespacedKey("kastara", "playerkiller_stage3"),
+        PersistentDataType.BYTE,
+        (byte) 1
+);
+showGlitchSubtitle(p);
                         p.sendActionBar(color(msg("activated-actionbar","&cBreak your limit &f| &aEfek aktif")));
                         sendGuide(p);animation[0].cancel();return;
                     }
