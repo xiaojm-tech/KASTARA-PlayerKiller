@@ -5,6 +5,7 @@ api-version: '1.21'
 authors: [KASTARA]
 description: Three-stage Player Head progression integrated with KASTARALives.
 depend: [KASTARALives]
+softdepend: [KASTARA-Titles]
 commands:
   playerkiller:
     description: KASTARA PlayerKiller administration
