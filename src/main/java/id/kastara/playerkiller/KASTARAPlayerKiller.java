@@ -65,6 +65,7 @@ public final class KASTARAPlayerKiller extends JavaPlugin implements Listener {
             return;
         }
         loadData();
+        for (Player player : Bukkit.getOnlinePlayers()) syncPlayerKillerStage(player, stages.getOrDefault(player.getUniqueId(), 0));
         registerRecipes();
         getServer().getPluginManager().registerEvents(this, this);
         if (getCommand("recipe") != null) getCommand("recipe").setExecutor(this);
@@ -78,7 +79,10 @@ public final class KASTARAPlayerKiller extends JavaPlugin implements Listener {
             if (old != null && old >= 0 && now >= 0 && now < old) {
                 boolean hadProgress = stages.remove(id) != null;
                 Player online = Bukkit.getPlayer(id);
-                if (online != null) clearEffects(online, hadProgress);
+                if (online != null) {
+                    clearEffects(online, hadProgress);
+                    syncPlayerKillerStage(online, 0);
+                }
             }
         }
         saveData();
@@ -148,6 +152,22 @@ public final class KASTARAPlayerKiller extends JavaPlugin implements Listener {
         if (changed) saveData();
     }
 
+    private void syncPlayerKillerStage(Player player, int stage) {
+        if (player == null) return;
+        int safeStage = Math.max(0, Math.min(3, stage));
+        player.getPersistentDataContainer().set(
+                new NamespacedKey("kastara", "playerkiller_stage"),
+                PersistentDataType.INTEGER,
+                safeStage
+        );
+        NamespacedKey legacyKey = new NamespacedKey("kastara", "playerkiller_stage3");
+        if (safeStage >= 3) {
+            player.getPersistentDataContainer().set(legacyKey, PersistentDataType.BYTE, (byte) 1);
+        } else {
+            player.getPersistentDataContainer().remove(legacyKey);
+        }
+    }
+
     private void clearEffects(Player p, boolean notify) {
         p.removePotionEffect(PotionEffectType.STRENGTH);
         p.removePotionEffect(PotionEffectType.RESISTANCE);
@@ -159,6 +179,7 @@ public final class KASTARAPlayerKiller extends JavaPlugin implements Listener {
 
     private void resetProgress(Player p) {
         boolean hadProgress = stages.remove(p.getUniqueId()) != null;
+        syncPlayerKillerStage(p, 0);
         clearEffects(p, hadProgress);
         saveData();
     }
@@ -199,6 +220,7 @@ public final class KASTARAPlayerKiller extends JavaPlugin implements Listener {
                 int stage = stages.getOrDefault(p.getUniqueId(), 0);
                 if (stage > 0) applyStage(p, stage);
             }
+            syncPlayerKillerStage(p, stages.getOrDefault(p.getUniqueId(), 0));
         }, 2L);
     }
 
@@ -791,7 +813,7 @@ public final class KASTARAPlayerKiller extends JavaPlugin implements Listener {
                         // Cue achievement sudah diputar saat kepala pecah pada tick 30.
                         world.spawnParticle(Particle.FIREWORK,chest,35,0.45,0.6,0.45,0.08);
                         world.spawnParticle(Particle.PORTAL,chest,45,0.55,0.7,0.55,0.35);
-                        stages.put(p.getUniqueId(),3);applyStage(p,3);saveData();
+                        stages.put(p.getUniqueId(),3);applyStage(p,3);syncPlayerKillerStage(p, 3);saveData();
 // Persistent bridge marker: KASTARA-Titles reads this to unlock LIMITLESS permanently.
 p.getPersistentDataContainer().set(
         new NamespacedKey("kastara", "playerkiller_stage3"),
@@ -828,6 +850,7 @@ showGlitchSubtitle(p);
                     if (p.isOnline()) {
                         stages.put(p.getUniqueId(), stage);
                         applyStage(p, stage);
+                        syncPlayerKillerStage(p, stage);
                         saveData();
                         p.sendActionBar(color(msg("activated-actionbar", "&cBreak your limit &f| &aEfek aktif")));
                         sendGuide(p);
