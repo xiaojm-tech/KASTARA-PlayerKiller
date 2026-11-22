@@ -1,4 +1,4 @@
-# KASTARA-PlayerKiller v1.1.0
+# KASTARA-PlayerKiller v1.2.1
 # Texture dapat diisi URL textures.minecraft.net/texture/<hash> atau Base64 property textures.
 textures:
   player-head: ""
@@ -37,6 +37,9 @@ final-title:
   title: "&d&lare you a player or a killer??"
   subtitle: "&c&lLimit Breaker"
 
+# Format waktu mengikuti zona waktu sistem server (default: dd/MM/yyyy HH:mm:ss).
+player-head-date-format: "dd/MM/yyyy HH:mm:ss"
+player-head-date-lore: "&7Waktu kematian: &f{datetime}"
 player-head-lore:
   - "&7Drop dari membunuh player lain."
   - "&e/recipe untuk upgrade"
