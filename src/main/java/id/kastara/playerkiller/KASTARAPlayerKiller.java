@@ -41,11 +41,15 @@ import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitTask;
 
 import java.lang.reflect.Method;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 public final class KASTARAPlayerKiller extends JavaPlugin implements Listener {
     private NamespacedKey itemKey;
+    private NamespacedKey deathTimeKey;
     private final Map<UUID, Integer> stages = new HashMap<>();
     private final Map<UUID, Integer> lifeSnapshot = new ConcurrentHashMap<>();
     private final Map<String, List<ItemDisplay>> stage2ShieldHalos = new HashMap<>();
@@ -59,6 +63,7 @@ public final class KASTARAPlayerKiller extends JavaPlugin implements Listener {
     @Override public void onEnable() {
         saveDefaultConfig();
         itemKey = new NamespacedKey(this, "playerkiller_item");
+        deathTimeKey = new NamespacedKey(this, "playerkiller_death_time");
         if (!hookLives()) {
             getLogger().severe("KASTARALives 1.4.0 tidak ditemukan / API getLifeManager tidak tersedia. Plugin dinonaktifkan.");
             getServer().getPluginManager().disablePlugin(this);
@@ -231,7 +236,25 @@ public final class KASTARAPlayerKiller extends JavaPlugin implements Listener {
         mark(meta, "player_head");
         String nickname = owner == null || owner.getName() == null ? "Player" : owner.getName();
         meta.setDisplayName(color("&f" + nickname + " Head"));
-        meta.setLore(lines("player-head-lore"));
+        long deathTime = System.currentTimeMillis();
+        meta.getPersistentDataContainer().set(deathTimeKey, PersistentDataType.LONG, deathTime);
+        String dateFormat = getConfig().getString("player-head-date-format", "dd/MM/yyyy HH:mm:ss");
+        String formattedDate;
+        try {
+            formattedDate = DateTimeFormatter.ofPattern(dateFormat, Locale.ROOT)
+                    .withZone(ZoneId.systemDefault())
+                    .format(Instant.ofEpochMilli(deathTime));
+        } catch (IllegalArgumentException ex) {
+            formattedDate = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss", Locale.ROOT)
+                    .withZone(ZoneId.systemDefault())
+                    .format(Instant.ofEpochMilli(deathTime));
+            getLogger().warning("Format tanggal Player Head tidak valid; memakai dd/MM/yyyy HH:mm:ss.");
+        }
+        List<String> headLore = new ArrayList<>(lines("player-head-lore"));
+        headLore.add(" ");
+        headLore.add(color(getConfig().getString("player-head-date-lore", "&7Waktu kematian: &f{datetime}")
+                .replace("{datetime}", formattedDate)));
+        meta.setLore(headLore);
         applyTexture(meta, "textures.player-head");
         item.setItemMeta(meta);
         return item;
@@ -866,15 +889,45 @@ showGlitchSubtitle(p);
         }, 0L, 1L);
     }
 
+    private boolean isRestrictedHeadContainer(Inventory inventory) {
+        if (inventory == null) return false;
+        InventoryType type = inventory.getType();
+        return type == InventoryType.CHEST
+                || type == InventoryType.ENDER_CHEST
+                || type == InventoryType.SHULKER_BOX;
+    }
+
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void preventHeadEquip(InventoryClickEvent e) {
-        if (!(e.getWhoClicked() instanceof Player)) return;
+        if (!(e.getWhoClicked() instanceof Player player)) return;
         ItemStack cursor = e.getCursor();
         ItemStack current = e.getCurrentItem();
         boolean headCursor = isCustomHead(cursor);
         boolean headCurrent = isCustomHead(current);
-        // Blokir hanya interaksi yang benar-benar menuju slot armor kepala.
-        // Shift-click di chest/container harus tetap bisa memindahkan item custom.
+
+        // Player Head dan item Stage tidak boleh dimasukkan ke chest,
+        // ender chest, atau shulker box. Pengambilan dari container tetap diizinkan.
+        Inventory top = e.getView().getTopInventory();
+        if (isRestrictedHeadContainer(top)) {
+            boolean clickedTop = e.getClickedInventory() == top;
+            boolean hotbarHead = false;
+            int hotbarButton = e.getHotbarButton();
+            if (hotbarButton >= 0 && hotbarButton < 9) {
+                hotbarHead = isCustomHead(player.getInventory().getItem(hotbarButton));
+            }
+            boolean placingIntoContainer = clickedTop && (headCursor || hotbarHead);
+            boolean shiftMovingIntoContainer = e.isShiftClick()
+                    && e.getClickedInventory() instanceof PlayerInventory
+                    && headCurrent;
+            if (placingIntoContainer || shiftMovingIntoContainer) {
+                e.setCancelled(true);
+                player.sendMessage(color(msg("head-storage-blocked",
+                        "&cPlayer Head tidak bisa disimpan di chest, ender chest, atau shulker box.")));
+                return;
+            }
+        }
+
+        // Pertahankan perlindungan lama agar custom head tidak bisa dipakai sebagai helmet.
         boolean armorSlot = e.getSlotType() == InventoryType.SlotType.ARMOR;
         boolean autoEquipFromPlayerInventory = e.isShiftClick()
                 && e.getClickedInventory() instanceof PlayerInventory
@@ -889,6 +942,16 @@ showGlitchSubtitle(p);
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void preventHeadDrag(InventoryDragEvent e) {
         if (!isCustomHead(e.getOldCursor())) return;
+
+        Inventory top = e.getView().getTopInventory();
+        if (isRestrictedHeadContainer(top)
+                && e.getRawSlots().stream().anyMatch(rawSlot -> rawSlot < top.getSize())) {
+            e.setCancelled(true);
+            e.getWhoClicked().sendMessage(color(msg("head-storage-blocked",
+                    "&cPlayer Head tidak bisa disimpan di chest, ender chest, atau shulker box.")));
+            return;
+        }
+
         boolean targetsArmor = e.getRawSlots().stream()
                 .anyMatch(rawSlot -> e.getView().getSlotType(rawSlot) == InventoryType.SlotType.ARMOR);
         if (targetsArmor) {
