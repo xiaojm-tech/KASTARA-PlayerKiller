@@ -522,6 +522,8 @@ public final class KASTARAPlayerKiller extends JavaPlugin implements Listener {
                 int x = Integer.parseInt(parts[1]);
                 int y = Integer.parseInt(parts[2]);
                 int z = Integer.parseInt(parts[3]);
+                // Jangan memicu chunk load hanya untuk efek partikel dekoratif.
+                if (!world.isChunkLoaded(x >> 4, z >> 4)) continue;
                 // Kepala berada di (x,y,z); partikel menempel di permukaan lantai y-1,
                 // membentuk bercak kecil di sekeliling pangkal kepala.
                 double[][] drops = {
@@ -575,6 +577,8 @@ public final class KASTARAPlayerKiller extends JavaPlugin implements Listener {
 
     private void updateStageFloorVisuals() {
         if (!getConfig().isConfigurationSection("placed")) return;
+        // Ambil daftar ItemDisplay sekali per world per eksekusi, bukan berulang untuk setiap kepala.
+        Map<World, List<ItemDisplay>> displaysByWorld = new HashMap<>();
         for (String key : getConfig().getConfigurationSection("placed").getKeys(false)) {
             int stage = getConfig().getInt("placed." + key, 0);
             if (stage < 1 || stage > 3) continue;
@@ -586,9 +590,12 @@ public final class KASTARAPlayerKiller extends JavaPlugin implements Listener {
                 int x = Integer.parseInt(parts[1]);
                 int y = Integer.parseInt(parts[2]);
                 int z = Integer.parseInt(parts[3]);
+                // getBlock()/getBlockAt() dapat melakukan synchronous chunk load.
+                // Lewati lokasi sampai chunk memang sudah loaded secara alami.
+                if (!world.isChunkLoaded(x >> 4, z >> 4)) continue;
                 Location blockLoc = new Location(world, x, y, z);
-                if (blockLoc.getBlock().getType() != Material.PLAYER_HEAD
-                        && blockLoc.getBlock().getType() != Material.PLAYER_WALL_HEAD) {
+                Material blockType = world.getBlockAt(x, y, z).getType();
+                if (blockType != Material.PLAYER_HEAD && blockType != Material.PLAYER_WALL_HEAD) {
                     removeStageVisuals(blockLoc);
                     continue;
                 }
@@ -598,15 +605,21 @@ public final class KASTARAPlayerKiller extends JavaPlugin implements Listener {
                 String previousTagV2 = "kpk_stagefx_v2_" + identity;
                 String previousTagV3 = "kpk_stagefx_v3_" + identity;
                 String previousTagV4 = "kpk_stagefx_v4_" + identity;
-                for (ItemDisplay oldDisplay : world.getEntitiesByClass(ItemDisplay.class)) {
-                    if (oldDisplay.getScoreboardTags().contains(previousTagV2)
-                            || oldDisplay.getScoreboardTags().contains(previousTagV3)
-                            || oldDisplay.getScoreboardTags().contains(previousTagV4)
-                            || oldDisplay.getScoreboardTags().contains(previousTagV2 + "_helmet")
-                            || oldDisplay.getScoreboardTags().contains(previousTagV3 + "_helmet")
-                            || oldDisplay.getScoreboardTags().contains(previousTagV4 + "_helmet")) oldDisplay.remove();
+                List<ItemDisplay> worldDisplays = displaysByWorld.computeIfAbsent(
+                        world, w -> new ArrayList<>(w.getEntitiesByClass(ItemDisplay.class)));
+                for (Iterator<ItemDisplay> iterator = worldDisplays.iterator(); iterator.hasNext();) {
+                    ItemDisplay oldDisplay = iterator.next();
+                    Set<String> oldTags = oldDisplay.getScoreboardTags();
+                    if (oldTags.contains(previousTagV2) || oldTags.contains(previousTagV3)
+                            || oldTags.contains(previousTagV4)
+                            || oldTags.contains(previousTagV2 + "_helmet")
+                            || oldTags.contains(previousTagV3 + "_helmet")
+                            || oldTags.contains(previousTagV4 + "_helmet")) {
+                        oldDisplay.remove();
+                        iterator.remove();
+                    }
                 }
-                boolean exists = world.getEntitiesByClass(ItemDisplay.class).stream()
+                boolean exists = worldDisplays.stream()
                         .anyMatch(display -> display.getScoreboardTags().contains(tag));
                 Location center = blockLoc.clone().add(0.5, 0.52, 0.5);
 
@@ -660,6 +673,7 @@ public final class KASTARAPlayerKiller extends JavaPlugin implements Listener {
                                     stage == 3 ? 0.58f : 0.72f,
                                     stage == 3 ? 0.58f : 0.72f), new Quaternionf()));
                 });
+                worldDisplays.add(display);
                 if (stage == 3) {
                     // Pangkal pedang berada di atas kepala; ujung bilah mengarah masuk ke skull.
                     // Tempatkan pedang pada sumbu tengah: gagang terlihat di atas,
@@ -680,8 +694,11 @@ public final class KASTARAPlayerKiller extends JavaPlugin implements Listener {
             String[] parts=key.split(",");if(parts.length!=4)continue;
             World world=Bukkit.getWorld(parts[0]);if(world==null)continue;
             try{
-                Location blockLoc=new Location(world,Integer.parseInt(parts[1]),Integer.parseInt(parts[2]),Integer.parseInt(parts[3]));
-                Material type=blockLoc.getBlock().getType();if(type!=Material.PLAYER_HEAD&&type!=Material.PLAYER_WALL_HEAD)continue;
+                int x=Integer.parseInt(parts[1]), y=Integer.parseInt(parts[2]), z=Integer.parseInt(parts[3]);
+                // Pertahankan state halo saat chunk unload; jangan paksa chunk dimuat oleh task tiap tick.
+                if(!world.isChunkLoaded(x >> 4,z >> 4)){activeLocations.add(key);continue;}
+                Location blockLoc=new Location(world,x,y,z);
+                Material type=world.getBlockAt(x,y,z).getType();if(type!=Material.PLAYER_HEAD&&type!=Material.PLAYER_WALL_HEAD)continue;
                 activeLocations.add(key);List<ItemDisplay> displays=stage2ShieldHalos.get(key);
                 if(displays==null||displays.size()!=4||displays.stream().anyMatch(d->!d.isValid())){
                     removeStage2ShieldHalo(key);displays=new ArrayList<>();
